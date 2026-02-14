@@ -4,14 +4,6 @@ A desktop GUI tool for batch text replacement across multiple files.
 
 This project is built with Python + Tkinter and provides safe replace workflows with preview, backup, cancel, and undo.
 
-## Recommended Repository Names
-
-- `word-replacer-gui` (recommended)
-- `bulk-word-replacer`
-- `tk-word-replace-tool`
-- `text-mapping-replacer`
-- `safe-batch-replace`
-- `replaceword-desktop`
 
 ## Key Features
 
