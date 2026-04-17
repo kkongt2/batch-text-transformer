@@ -27,6 +27,14 @@ class WordReplacerGUI:
     MAX_PREVIEW_MATCHES = 160_000
     MAX_PREVIEW_TEXT_CHARS = 5_000_000
     CONTEXT_CHARS_MAX = 200
+    CONTEXT_LINE_MODE_BOTH = "Both"
+    CONTEXT_LINE_MODE_ABOVE = "Above only"
+    CONTEXT_LINE_MODE_BELOW = "Below only"
+    CONTEXT_LINE_MODE_OPTIONS = (
+        CONTEXT_LINE_MODE_BOTH,
+        CONTEXT_LINE_MODE_ABOVE,
+        CONTEXT_LINE_MODE_BELOW,
+    )
 
     def schedule_preview(self):
         if self.preview_after_id:
@@ -66,6 +74,7 @@ class WordReplacerGUI:
 
         self.context_chars_var = tk.IntVar(value=self.CONTEXT_CHARS_MAX)
         self.context_lines_var = tk.IntVar(value=0)
+        self.context_line_mode_var = tk.StringVar(value=self.CONTEXT_LINE_MODE_BOTH)
         self.mapping_issue_var = tk.StringVar(value="Mapping issues: none")
         self.file_jump_var = tk.StringVar(value="")
         self.mapping_jump_var = tk.StringVar(value="")
@@ -230,6 +239,18 @@ class WordReplacerGUI:
                                                 width=3, command=self.schedule_preview)
         self.context_lines_spinbox.pack(side="left", padx=(0, 10))
         self.context_lines_spinbox.bind("<KeyRelease>", lambda e: self.schedule_preview())
+
+        ttk.Label(act_top, text="Show:", background="#2e3440", foreground="#ECEFF4").pack(
+            side="left", padx=(0, 5))
+        self.context_line_mode_combo = ttk.Combobox(
+            act_top,
+            textvariable=self.context_line_mode_var,
+            values=self.CONTEXT_LINE_MODE_OPTIONS,
+            state="readonly",
+            width=11,
+        )
+        self.context_line_mode_combo.pack(side="left", padx=(0, 10))
+        self.context_line_mode_combo.bind("<<ComboboxSelected>>", self.on_context_line_mode_changed)
 
         ttk.Label(act_top, text="Context chars:", background="#2e3440", foreground="#ECEFF4").pack(
             side="left", padx=(0, 5))
@@ -506,6 +527,7 @@ class WordReplacerGUI:
             self.case_check.state(["disabled"])
             self.scope_selected_rb.state(["disabled"])
             self.scope_all_rb.state(["disabled"])
+            self.context_line_mode_combo.state(["disabled"])
             self.context_chars_scale.state(["disabled"])
             self.browse_btn.state(["disabled"])
             self.clear_btn.state(["disabled"])
@@ -516,6 +538,7 @@ class WordReplacerGUI:
             self.case_check.state(["!disabled"])
             self.scope_selected_rb.state(["!disabled"])
             self.scope_all_rb.state(["!disabled"])
+            self.context_line_mode_combo.state(["!disabled"])
             self.context_chars_scale.state(["!disabled"])
             self.browse_btn.state(["!disabled"])
             self.clear_btn.state(["!disabled"])
@@ -553,6 +576,23 @@ class WordReplacerGUI:
 
     def on_context_chars_changed(self, *_):
         self.context_chars_label.config(text=str(self.context_chars_var.get()))
+
+    def _normalize_context_line_mode(self, mode: str | None) -> str:
+        if mode in self.CONTEXT_LINE_MODE_OPTIONS:
+            return mode
+        return self.CONTEXT_LINE_MODE_BOTH
+
+    def _get_context_line_visibility(self, mode: str | None = None) -> tuple[bool, bool]:
+        mode = self._normalize_context_line_mode(
+            self.context_line_mode_var.get() if mode is None else mode
+        )
+        show_above = mode != self.CONTEXT_LINE_MODE_BELOW
+        show_below = mode != self.CONTEXT_LINE_MODE_ABOVE
+        return show_above, show_below
+
+    def on_context_line_mode_changed(self, event=None):
+        self.context_line_mode_var.set(self._normalize_context_line_mode(self.context_line_mode_var.get()))
+        self.schedule_preview()
 
     def _on_replace_scope_changed(self):
         self._refresh_action_state()
@@ -668,13 +708,23 @@ class WordReplacerGUI:
                 data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
                 self._add_files(data.get("files", []), source="Session", log_result=False)
                 self.map_text.insert("1.0", data.get("mapping", ""))
+                self.context_lines_var.set(int(data.get("context_lines", 0)))
+                self.context_chars_var.set(int(data.get("context_chars", self.CONTEXT_CHARS_MAX)))
+                self.context_line_mode_var.set(
+                    self._normalize_context_line_mode(data.get("context_line_mode", self.CONTEXT_LINE_MODE_BOTH))
+                )
                 self._highlight_mapping()
             except Exception:
                 pass
 
     def save_session(self):
-        data = {"files": list(self.file_listbox.get(0, tk.END)),
-                "mapping": self.map_text.get("1.0", tk.END).rstrip("\n")}
+        data = {
+            "files": list(self.file_listbox.get(0, tk.END)),
+            "mapping": self.map_text.get("1.0", tk.END).rstrip("\n"),
+            "context_lines": int(self.context_lines_var.get()),
+            "context_chars": int(self.context_chars_var.get()),
+            "context_line_mode": self._normalize_context_line_mode(self.context_line_mode_var.get()),
+        }
         try:
             SESSION_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception:
@@ -735,6 +785,10 @@ class WordReplacerGUI:
         flags = (0 if case else re.IGNORECASE)  # 미리보기 전용
         ctx_chars = self.context_chars_var.get()
         ctx_lines = self.context_lines_var.get()
+        show_above, show_below = self._get_context_line_visibility()
+        if ctx_lines <= 0:
+            show_above = False
+            show_below = False
         targets = self.mapping_pairs if idx == 0 else [self.mapping_pairs[idx - 1]]
         if not targets:
             self._set_file_shortcuts([])
@@ -752,7 +806,7 @@ class WordReplacerGUI:
         def worker():
             try:
                 text_out, src_ranges, truncated_by_matches = self._build_preview_grouped_text_and_ranges(
-                    files, targets, regex, case, flags, ctx_lines, ctx_chars, seq
+                    files, targets, regex, case, flags, ctx_lines, ctx_chars, show_above, show_below, seq
                 )
                 match_count = len(src_ranges)
                 text_out, src_ranges, truncated_by_size = self._truncate_preview_payload(text_out, src_ranges)
@@ -834,7 +888,7 @@ class WordReplacerGUI:
         return text[:head_len], text[head_len:]
 
     def _build_multi_literal_small_target_fast(
-        self, files, targets, case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq
+        self, files, targets, case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq
     ):
         N = len(targets)
         per_target_limit = max(1, self.MAX_PREVIEW_MATCHES // max(1, N))
@@ -850,7 +904,7 @@ class WordReplacerGUI:
             if not s:
                 continue
             t_text, t_ranges, t_trunc = self._build_single_literal(
-                files, (s, d), case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq,
+                files, (s, d), case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq,
                 max_matches_limit=per_target_limit
             )
             _, block = self._split_preview_summary_block(t_text)
@@ -1009,7 +1063,9 @@ class WordReplacerGUI:
         return text, ranges, nav_items
 
     # === 핵심: 단어별 섹션 분리 + 고속 경로(리터럴 다중 패턴은 합성 정규식) ===
-    def _build_preview_grouped_text_and_ranges(self, files, targets, regex, case, flags, ctx_lines, ctx_chars, seq):
+    def _build_preview_grouped_text_and_ranges(
+        self, files, targets, regex, case, flags, ctx_lines, ctx_chars, show_above, show_below, seq
+    ):
         """
         각 타겟(단어)마다 별도의 버퍼에 결과를 쌓고, 마지막에 섹션 순서대로 이어 붙여 반환.
         반환: (combined_text, combined_src_ranges)
@@ -1020,7 +1076,7 @@ class WordReplacerGUI:
         # 1) 단일 타겟 + 리터럴 + 개행 없음: 초고속 경로 (그대로 사용)
         if len(targets) == 1 and not regex and ("\n" not in targets[0][0] and "\r" not in targets[0][0]):
             text, ranges, truncated = self._build_single_literal(
-                files, targets[0], case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq
+                files, targets[0], case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq
             )
             return text, ranges, truncated
 
@@ -1030,7 +1086,7 @@ class WordReplacerGUI:
             # 소수 타겟(예: 2~6개)은 단일 고속 경로를 타겟별로 재사용하는 편이 훨씬 빠름.
             if len(targets) <= 6:
                 return self._build_multi_literal_small_target_fast(
-                    files, targets, case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq
+                    files, targets, case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq
                 )
 
             # 그룹 이름 g0, g1, ...
@@ -1065,7 +1121,7 @@ class WordReplacerGUI:
                 last_printed_line = [None] * N
 
                 # 선행 문맥 라인 저장(공유)
-                prev_lines = deque(maxlen=max(0, ctx_lines))
+                prev_lines = deque(maxlen=max(0, ctx_lines)) if show_above else None
 
                 fh = None
                 for enc in ("utf-8", "cp949", "euc-kr"):
@@ -1084,7 +1140,7 @@ class WordReplacerGUI:
                         line = line.rstrip("\r\n")
 
                         # 후행 문맥: 타겟별로 출력
-                        if ctx_lines:
+                        if show_below:
                             s1 = f"{L}{ln_no}{colon_sp}{line}{nl}"
                             for k in range(N):
                                 if post_remain[k] > 0:
@@ -1112,7 +1168,7 @@ class WordReplacerGUI:
                                 printed_header[k] = True
 
                             # 선행 문맥 (타겟별 섹션에 출력)
-                            if ctx_lines and prev_lines:
+                            if show_above and prev_lines:
                                 base_ln = ln_no - len(prev_lines)
                                 for i, pl in enumerate(prev_lines, start=base_ln):
                                     prev_ln = last_printed_line[k]
@@ -1156,7 +1212,8 @@ class WordReplacerGUI:
                             last_printed_line[k] = ln_no
                             cnt[k] += 1
                             shown_total[k] += 1
-                            post_remain[k] = max(post_remain[k], ctx_lines)
+                            if show_below:
+                                post_remain[k] = max(post_remain[k], ctx_lines)
                             if shown_total[k] >= per_target_limit:
                                 capped[k] = True
 
@@ -1165,7 +1222,7 @@ class WordReplacerGUI:
                             truncated = True
                             break
 
-                        if ctx_lines:
+                        if show_above:
                             prev_lines.append(line)
 
                 # 파일별 summary
@@ -1213,7 +1270,7 @@ class WordReplacerGUI:
             cnt = [0] * N
             post_remain = [0] * N
             last_printed_line = [None] * N
-            prev_lines = deque(maxlen=max(0, ctx_lines))
+            prev_lines = deque(maxlen=max(0, ctx_lines)) if show_above else None
 
             fh = None
             for enc in ("utf-8", "cp949", "euc-kr"):
@@ -1232,7 +1289,7 @@ class WordReplacerGUI:
                     line = line.rstrip("\r\n")
 
                     # 후행 문맥
-                    if ctx_lines:
+                    if show_below:
                         s1 = f"{L}{ln_no}{colon_sp}{line}{nl}"
                         for k in range(N):
                             if post_remain[k] > 0:
@@ -1253,7 +1310,7 @@ class WordReplacerGUI:
                                 bufs[k].write(h); pos[k] += len(h)
                                 printed_header[k] = True
 
-                            if ctx_lines and prev_lines:
+                            if show_above and prev_lines:
                                 base_ln = ln_no - len(prev_lines)
                                 for i, pl in enumerate(prev_lines, start=base_ln):
                                     prev_ln = last_printed_line[k]
@@ -1306,12 +1363,12 @@ class WordReplacerGUI:
                         truncated = True
                         break
 
-                    if matched_any:
+                    if matched_any and show_below:
                         for k in range(N):
                             if printed_header[k]:  # 매치가 있었던 타겟만
                                 post_remain[k] = max(post_remain[k], ctx_lines)
 
-                    if ctx_lines:
+                    if show_above:
                         prev_lines.append(line)
 
             for k in range(N):
@@ -1447,7 +1504,8 @@ class WordReplacerGUI:
         return summary + out.getvalue(), shifted_ranges, truncated or capped
 
     def _build_single_literal_with_line_context(
-        self, files, target, case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq, max_matches_limit=None
+        self, files, target, case, ctx_lines, ctx_chars, show_above, show_below,
+        L, colon_sp, nl, arrow, seq, max_matches_limit=None
     ):
         s, d = target
         s_find = s if case else s.lower()
@@ -1501,7 +1559,7 @@ class WordReplacerGUI:
 
             def flush_post_until(limit_line: int):
                 nonlocal post_next_line, post_next_start
-                if post_next_line == 0 or post_next_line > limit_line:
+                if (not show_below) or post_next_line == 0 or post_next_line > limit_line:
                     return
                 while post_next_line <= limit_line:
                     post_next_start, ok = write_full_line(post_next_line, post_next_start)
@@ -1530,7 +1588,8 @@ class WordReplacerGUI:
                 if not grp_matches:
                     return
 
-                flush_post_until(min(post_until_line, grp_line_no))
+                if show_below:
+                    flush_post_until(min(post_until_line, grp_line_no))
 
                 for pos_found in grp_matches:
                     if not header_printed:
@@ -1538,27 +1597,28 @@ class WordReplacerGUI:
                         write(h); pos += len(h)
                         header_printed = True
 
-                    prev_meta = []
-                    prev_no = grp_line_no
-                    prev_start = grp_line_start
-                    for _ in range(ctx_lines):
-                        if prev_no <= 1 or prev_start <= 0:
-                            break
-                        raw_end = prev_start - 1
-                        prev_end = raw_end
-                        if prev_end > 0 and txt[prev_end - 1] == "\r":
-                            prev_end -= 1
-                        prev_nl = txt.rfind("\n", 0, raw_end)
-                        prev_start = prev_nl + 1 if prev_nl != -1 else 0
-                        prev_no -= 1
-                        prev_meta.append((prev_no, prev_start, prev_end))
+                    if show_above:
+                        prev_meta = []
+                        prev_no = grp_line_no
+                        prev_start = grp_line_start
+                        for _ in range(ctx_lines):
+                            if prev_no <= 1 or prev_start <= 0:
+                                break
+                            raw_end = prev_start - 1
+                            prev_end = raw_end
+                            if prev_end > 0 and txt[prev_end - 1] == "\r":
+                                prev_end -= 1
+                            prev_nl = txt.rfind("\n", 0, raw_end)
+                            prev_start = prev_nl + 1 if prev_nl != -1 else 0
+                            prev_no -= 1
+                            prev_meta.append((prev_no, prev_start, prev_end))
 
-                    for pno, pstart, pend in reversed(prev_meta):
-                        if last_printed_line is not None and pno > last_printed_line + 1:
-                            write(nl); pos += len(nl)
-                        s2 = f"{L}{pno}{colon_sp}{txt[pstart:pend]}{nl}"
-                        write(s2); pos += len(s2)
-                        last_printed_line = pno
+                        for pno, pstart, pend in reversed(prev_meta):
+                            if last_printed_line is not None and pno > last_printed_line + 1:
+                                write(nl); pos += len(nl)
+                            s2 = f"{L}{pno}{colon_sp}{txt[pstart:pend]}{nl}"
+                            write(s2); pos += len(s2)
+                            last_printed_line = pno
 
                     pre_a = max(grp_line_start, pos_found - ctx_chars)
                     post_a = pos_found + s_len
@@ -1596,10 +1656,11 @@ class WordReplacerGUI:
 
                     printed += 1
                     shown_total += 1
-                    post_until_line = max(post_until_line, grp_line_no + ctx_lines)
-                    if post_next_line == 0 or post_next_line < grp_line_no + 1:
-                        post_next_line = grp_line_no + 1
-                        post_next_start = grp_line_raw_end + 1 if grp_line_raw_end < txt_len else txt_len + 1
+                    if show_below:
+                        post_until_line = max(post_until_line, grp_line_no + ctx_lines)
+                        if post_next_line == 0 or post_next_line < grp_line_no + 1:
+                            post_next_line = grp_line_no + 1
+                            post_next_start = grp_line_raw_end + 1 if grp_line_raw_end < txt_len else txt_len + 1
 
                     if shown_total >= max_matches or pos >= build_char_limit:
                         stop_early = True
@@ -1651,7 +1712,7 @@ class WordReplacerGUI:
                 process_group()
                 grp_matches.clear()
 
-            if not stop_early and seq == self.preview_seq:
+            if not stop_early and seq == self.preview_seq and show_below:
                 flush_post_until(post_until_line)
 
             if header_printed:
@@ -1665,7 +1726,8 @@ class WordReplacerGUI:
         return summary + out.getvalue(), shifted_ranges, truncated or capped
 
     def _build_single_literal(
-        self, files, target, case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq, max_matches_limit=None
+        self, files, target, case, ctx_lines, ctx_chars, show_above, show_below,
+        L, colon_sp, nl, arrow, seq, max_matches_limit=None
     ):
         """단일 리터럴 고속 경로(그대로)."""
         s, d = target
@@ -1677,7 +1739,8 @@ class WordReplacerGUI:
                     files, target, case, ctx_chars, L, colon_sp, nl, arrow, seq, max_matches_limit
                 )
             return self._build_single_literal_with_line_context(
-                files, target, case, ctx_lines, ctx_chars, L, colon_sp, nl, arrow, seq, max_matches_limit
+                files, target, case, ctx_lines, ctx_chars, show_above, show_below,
+                L, colon_sp, nl, arrow, seq, max_matches_limit
             )
         header_tmpl = "{}: '{}' -> '{}'\n"
 
@@ -1696,7 +1759,7 @@ class WordReplacerGUI:
                 break
             header_printed = False
             printed = 0
-            prev_lines = deque(maxlen=max(0, ctx_lines))
+            prev_lines = deque(maxlen=max(0, ctx_lines)) if show_above else None
             post_remain = 0
             last_printed_line = None
 
@@ -1718,7 +1781,7 @@ class WordReplacerGUI:
                     line = line.rstrip("\r\n")
                     hay = line if case else line.lower()
 
-                    if post_remain > 0:
+                    if show_below and post_remain > 0:
                         if last_printed_line is not None and ln_no > last_printed_line + 1:
                             write(nl); pos += len(nl)
                         s1 = f"{L}{ln_no}{colon_sp}{line}{nl}"
@@ -1737,7 +1800,7 @@ class WordReplacerGUI:
                             write(h); pos += len(h)
                             header_printed = True
 
-                        if ctx_lines and prev_lines:
+                        if show_above and prev_lines:
                             base_ln = ln_no - len(prev_lines)
                             for i, pl in enumerate(prev_lines, start=base_ln):
                                 if last_printed_line is not None and i > last_printed_line + 1:
@@ -1777,7 +1840,8 @@ class WordReplacerGUI:
                         write(nl); pos += 1
                         last_printed_line = ln_no
 
-                        post_remain = max(post_remain, ctx_lines)
+                        if show_below:
+                            post_remain = max(post_remain, ctx_lines)
                         printed += 1
                         shown_total += 1
                         if shown_total >= max_matches or pos >= build_char_limit:
@@ -1786,7 +1850,7 @@ class WordReplacerGUI:
                             break
                         start = pos_found + (s_len if s_len else 1)
 
-                    if ctx_lines:
+                    if show_above:
                         prev_lines.append(line)
 
             if header_printed:
