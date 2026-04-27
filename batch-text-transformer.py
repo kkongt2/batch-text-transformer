@@ -35,6 +35,287 @@ class WordReplacerGUI:
         CONTEXT_LINE_MODE_ABOVE,
         CONTEXT_LINE_MODE_BELOW,
     )
+    MAP_MODE_PREVIEW = "preview"
+    MAP_MODE_REPLACE = "replace"
+    MAP_MODE_DELETE_WORD = "delete-word"
+    MAP_MODE_DELETE_LINE = "delete-line"
+    MAP_MODE_INVALID = "invalid"
+    DELETE_LINE_MODE_ALIASES = {
+        "delete-line",
+        "line-delete",
+        "delete-lines",
+        "delete-row",
+        "remove-line",
+        "line-remove",
+        "line",
+    }
+
+    COLORS = {
+        "bg": "#101114",
+        "panel": "#1a1d23",
+        "panel_alt": "#20242c",
+        "field": "#101319",
+        "border": "#343a46",
+        "border_focus": "#00c2a8",
+        "text": "#f4f6f8",
+        "muted": "#aab1bd",
+        "subtle": "#7d8490",
+        "accent": "#00c2a8",
+        "accent_hover": "#18d8bf",
+        "accent_pressed": "#00a892",
+        "accent_text": "#051716",
+        "button": "#2a303b",
+        "button_hover": "#363f4d",
+        "button_pressed": "#222833",
+        "selection": "#335cce",
+        "warning": "#ffcc66",
+        "danger": "#ff5d73",
+        "danger_hover": "#ff7890",
+        "purple": "#b68cff",
+        "highlight": "#ffd166",
+        "disabled_bg": "#232730",
+        "disabled_text": "#68707d",
+        "progress_trough": "#0b0d12",
+    }
+    UI_FONT = ("Segoe UI", 10)
+    UI_FONT_BOLD = ("Segoe UI", 10, "bold")
+    HEADING_FONT = ("Segoe UI Semibold", 11)
+    TITLE_FONT = ("Segoe UI Semibold", 16)
+    MONO_FONT = ("Consolas", 10)
+
+    def _configure_theme(self):
+        c = self.colors
+        self.master.option_add("*Font", "{Segoe UI} 10")
+        self.master.option_add("*Listbox.font", "{Segoe UI} 10")
+        self.master.option_add("*TCombobox*Listbox.background", c["field"])
+        self.master.option_add("*TCombobox*Listbox.foreground", c["text"])
+        self.master.option_add("*TCombobox*Listbox.selectBackground", c["selection"])
+        self.master.option_add("*TCombobox*Listbox.selectForeground", c["text"])
+
+        style = ttk.Style(self.master)
+        style.theme_use("clam")
+
+        style.configure(".", font=self.UI_FONT)
+        style.configure("TFrame", background=c["bg"])
+        style.configure("Root.TFrame", background=c["bg"])
+        style.configure("Header.TFrame", background=c["panel_alt"], relief="solid", borderwidth=1, bordercolor=c["border"])
+        style.configure("AccentRail.TFrame", background=c["accent"])
+        style.configure("Panel.TFrame", background=c["panel"], relief="solid", borderwidth=1, bordercolor=c["border"])
+        style.configure("Toolbar.TFrame", background=c["panel"], relief="flat")
+        style.configure("ActionPanel.TFrame", background=c["panel_alt"], relief="solid", borderwidth=1, bordercolor=c["border"])
+        style.configure("Action.TFrame", background=c["panel_alt"])
+        style.configure("StatusBar.TFrame", background=c["panel_alt"], relief="solid", borderwidth=1, bordercolor=c["border"])
+
+        style.configure("TLabel", background=c["bg"], foreground=c["text"], font=self.UI_FONT)
+        style.configure("HeaderTitle.TLabel", background=c["panel_alt"], foreground=c["text"], font=self.TITLE_FONT)
+        style.configure("HeaderMeta.TLabel", background=c["panel_alt"], foreground=c["muted"], font=("Segoe UI", 9))
+        style.configure("Section.TLabel", background=c["panel"], foreground=c["text"], font=self.HEADING_FONT)
+        style.configure("Panel.TLabel", background=c["panel"], foreground=c["text"], font=self.UI_FONT)
+        style.configure("Muted.TLabel", background=c["panel"], foreground=c["muted"], font=self.UI_FONT)
+        style.configure("Mini.TLabel", background=c["panel"], foreground=c["subtle"], font=("Segoe UI", 8, "bold"))
+        style.configure("Hint.TLabel", background=c["panel"], foreground=c["accent"], font=("Segoe UI", 9))
+        style.configure("Warning.TLabel", background=c["panel"], foreground=c["warning"], font=("Segoe UI", 9))
+        style.configure("Value.TLabel", background=c["panel"], foreground=c["text"], font=self.UI_FONT_BOLD)
+        style.configure("ActionMuted.TLabel", background=c["panel_alt"], foreground=c["muted"], font=("Segoe UI", 9))
+        style.configure("ActionMini.TLabel", background=c["panel_alt"], foreground=c["subtle"], font=("Segoe UI", 8, "bold"))
+        style.configure("ActionHeading.TLabel", background=c["panel_alt"], foreground=c["accent"], font=("Segoe UI", 9, "bold"))
+        style.configure("ActionValue.TLabel", background=c["panel_alt"], foreground=c["text"], font=self.UI_FONT_BOLD)
+        style.configure("Status.TLabel", background=c["panel"], foreground=c["muted"], font=("Segoe UI", 9))
+        style.configure("StatusBar.TLabel", background=c["panel_alt"], foreground=c["text"], font=self.UI_FONT)
+
+        style.configure(
+            "TButton",
+            background=c["button"],
+            foreground=c["text"],
+            borderwidth=0,
+            focusthickness=0,
+            padding=(11, 7),
+            font=self.UI_FONT_BOLD,
+        )
+        style.map(
+            "TButton",
+            background=[
+                ("disabled", c["disabled_bg"]),
+                ("pressed", c["button_pressed"]),
+                ("active", c["button_hover"]),
+            ],
+            foreground=[("disabled", c["disabled_text"])],
+        )
+        style.configure(
+            "Accent.TButton",
+            background=c["accent"],
+            foreground=c["accent_text"],
+            borderwidth=0,
+            focusthickness=0,
+            padding=(13, 8),
+            font=self.UI_FONT_BOLD,
+        )
+        style.map(
+            "Accent.TButton",
+            background=[
+                ("disabled", c["disabled_bg"]),
+                ("pressed", c["accent_pressed"]),
+                ("active", c["accent_hover"]),
+            ],
+            foreground=[("disabled", c["disabled_text"])],
+        )
+        style.configure("Danger.TButton", background=c["danger"], foreground="#ffffff")
+        style.map(
+            "Danger.TButton",
+            background=[("disabled", c["disabled_bg"]), ("pressed", c["danger"]), ("active", c["danger_hover"])],
+            foreground=[("disabled", c["disabled_text"])],
+        )
+        style.configure(
+            "Stepper.TButton",
+            background=c["button"],
+            foreground=c["text"],
+            borderwidth=0,
+            focusthickness=0,
+            padding=(8, 4),
+            font=self.UI_FONT_BOLD,
+        )
+        style.map(
+            "Stepper.TButton",
+            background=[
+                ("disabled", c["disabled_bg"]),
+                ("pressed", c["button_pressed"]),
+                ("active", c["button_hover"]),
+            ],
+            foreground=[("disabled", c["disabled_text"]), ("active", c["accent"])],
+        )
+
+        style.configure("TCheckbutton", background=c["panel"], foreground=c["text"], font=self.UI_FONT)
+        style.map(
+            "TCheckbutton",
+            background=[("active", c["panel"]), ("selected", c["panel"])],
+            foreground=[("disabled", c["disabled_text"]), ("active", c["accent"])],
+        )
+        style.configure("TRadiobutton", background=c["panel"], foreground=c["text"], font=self.UI_FONT)
+        style.map(
+            "TRadiobutton",
+            background=[("active", c["panel"]), ("selected", c["panel"])],
+            foreground=[("disabled", c["disabled_text"]), ("active", c["accent"])],
+        )
+        style.configure("Action.TRadiobutton", background=c["panel_alt"], foreground=c["text"], font=("Segoe UI", 9))
+        style.map(
+            "Action.TRadiobutton",
+            background=[("active", c["panel_alt"]), ("selected", c["panel_alt"])],
+            foreground=[("disabled", c["disabled_text"]), ("active", c["accent"])],
+        )
+
+        style.configure(
+            "TCombobox",
+            background=c["button"],
+            foreground=c["text"],
+            fieldbackground=c["field"],
+            selectbackground=c["selection"],
+            selectforeground=c["text"],
+            bordercolor=c["border"],
+            lightcolor=c["border"],
+            darkcolor=c["border"],
+            arrowcolor=c["accent"],
+            padding=(7, 4),
+        )
+        style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", c["field"])],
+            foreground=[("disabled", c["disabled_text"])],
+            bordercolor=[("focus", c["border_focus"]), ("active", c["border_focus"])],
+            arrowcolor=[("disabled", c["disabled_text"]), ("active", c["accent_hover"])],
+        )
+
+        style.configure("Horizontal.TScale", background=c["panel"], troughcolor=c["field"])
+        style.configure("Action.Horizontal.TScale", background=c["panel_alt"], troughcolor=c["field"])
+        style.configure(
+            "Vertical.TScrollbar",
+            background=c["button"],
+            troughcolor=c["field"],
+            arrowcolor=c["muted"],
+            bordercolor=c["panel"],
+            lightcolor=c["button"],
+            darkcolor=c["button"],
+        )
+        style.configure(
+            "Horizontal.TScrollbar",
+            background=c["button"],
+            troughcolor=c["field"],
+            arrowcolor=c["muted"],
+            bordercolor=c["panel"],
+            lightcolor=c["button"],
+            darkcolor=c["button"],
+        )
+        style.configure("TPanedwindow", background=c["bg"])
+        style.configure("TProgressbar", troughcolor=c["progress_trough"], background=c["accent"], bordercolor=c["panel_alt"])
+        style.configure("Navigator.TLabelframe", background=c["panel"], bordercolor=c["border"], borderwidth=1)
+        style.configure(
+            "Navigator.TLabelframe.Label",
+            background=c["panel"], foreground=c["accent"], font=("Segoe UI", 9, "bold")
+        )
+        return style
+
+    def _style_text_widget(self, widget):
+        c = self.colors
+        widget.configure(
+            bg=c["field"],
+            fg=c["text"],
+            insertbackground=c["accent"],
+            selectbackground=c["selection"],
+            selectforeground=c["text"],
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=8,
+            highlightthickness=1,
+            highlightbackground=c["border"],
+            highlightcolor=c["border_focus"],
+        )
+
+    def _style_listbox(self, widget):
+        c = self.colors
+        widget.configure(
+            bg=c["field"],
+            fg=c["text"],
+            selectbackground=c["selection"],
+            selectforeground=c["text"],
+            relief="flat",
+            bd=0,
+            activestyle="none",
+            highlightthickness=1,
+            highlightbackground=c["border"],
+            highlightcolor=c["border_focus"],
+        )
+
+    def _style_spinbox(self, widget):
+        c = self.colors
+        widget.configure(
+            bg=c["field"],
+            fg=c["text"],
+            insertbackground=c["accent"],
+            buttonbackground=c["button"],
+            relief="flat",
+            bd=0,
+            width=4,
+            highlightthickness=1,
+            highlightbackground=c["border"],
+            highlightcolor=c["border_focus"],
+        )
+
+    def _style_number_entry(self, widget):
+        c = self.colors
+        widget.configure(
+            bg=c["field"],
+            fg=c["text"],
+            disabledbackground=c["disabled_bg"],
+            disabledforeground=c["disabled_text"],
+            insertbackground=c["accent"],
+            justify="center",
+            relief="flat",
+            bd=0,
+            width=2,
+            highlightthickness=1,
+            highlightbackground=c["border"],
+            highlightcolor=c["border_focus"],
+        )
 
     def schedule_preview(self):
         if self.preview_after_id:
@@ -43,10 +324,12 @@ class WordReplacerGUI:
 
     def __init__(self, master):
         self.master = master
-        master.title("Word Replacement Tool")
-        master.geometry("1000x800")
-        master.minsize(900, 640)
-        master.configure(bg="#2e3440")
+        self.colors = self.COLORS
+        c = self.colors
+        master.title("Batch Text Transformer")
+        master.geometry("1180x820")
+        master.minsize(1020, 680)
+        master.configure(bg=c["bg"])
         master.protocol("WM_DELETE_WINDOW", self.on_close)
 
         # ── 상태 ──
@@ -57,10 +340,10 @@ class WordReplacerGUI:
         self.replace_thread = None
         self.replace_cancel_event = threading.Event()
         self.is_replacing = False
-        self.mapping_pairs: list[tuple[str, str]] = []
+        self.mapping_pairs: list[tuple[str, str, str]] = []
         self.last_replaced: list[str] = []
         self.total_replacements = 0
-        self.file_mapping_changes: dict[str, set[tuple[str, str]]] = {}
+        self.file_mapping_changes: dict[str, set[tuple[str, str, str]]] = {}
         self.file_cache: dict[str, str] = {}
         self.file_lower_cache: dict[str, str] = {}
         self.replace_scope_var = tk.StringVar(value="all")
@@ -71,6 +354,8 @@ class WordReplacerGUI:
         self._pv_src_starts: list[int] = []              # starts for bisect
         self._pv_line_starts: list[int] = []             # 각 라인의 시작 문자 오프셋
         self._pv_jump_nav: dict[str, dict[str, int | None]] = {}
+        self._pv_delete_line_line_keys: dict[int, tuple[str, str, int]] = {}
+        self.delete_line_selection_overrides: dict[tuple[str, str, int], bool] = {}
 
         self.context_chars_var = tk.IntVar(value=self.CONTEXT_CHARS_MAX)
         self.context_lines_var = tk.IntVar(value=0)
@@ -80,56 +365,44 @@ class WordReplacerGUI:
         self.mapping_jump_var = tk.StringVar(value="")
 
         # ── 스타일 ──
-        style = ttk.Style(master)
-        style.theme_use('clam')
-        style.configure('TFrame', background='#2e3440')
-        style.configure('TLabel', background='#2e3440', foreground='#ECEFF4', font=('Segoe UI', 10))
-        style.configure('TButton', background='#3B4252', foreground='#ECEFF4')
-        style.map('TButton', background=[('active', '#4C566A')])
-        style.configure('Accent.TButton', background='#4CAF50', foreground='#FFFFFF', font=('Segoe UI', 10, 'bold'))
-        style.map('Accent.TButton', background=[('active', '#43A047')])
-        style.configure('TCheckbutton', background='#2e3440', foreground='#ECEFF4')
-        style.configure('TRadiobutton', background='#2e3440', foreground='#ECEFF4')
-        style.configure('Horizontal.TScale', troughcolor='#4C566A', background='#88C0D0')
-        style.configure('Vertical.TScrollbar', background='#3B4252', troughcolor='#2e3440', arrowcolor='#ECEFF4')
-        style.configure('TPanedwindow', background='#2e3440')
-        style.configure('TProgressbar', troughcolor='#000000', background='#4CAF50')
-        style.configure('Navigator.TLabelframe', background='#2e3440', bordercolor='#4C566A', borderwidth=1)
-        style.configure(
-            'Navigator.TLabelframe.Label',
-            background='#2e3440', foreground='#88C0D0', font=('Segoe UI', 9, 'bold')
-        )
+        self.style = self._configure_theme()
 
         # ── 레이아웃 ──
-        container = ttk.Frame(master, padding=12)
+        container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
         container.pack(fill=tk.BOTH, expand=True)
-        container.rowconfigure(0, weight=3)
-        container.rowconfigure(1, weight=1)
-        container.rowconfigure(2, weight=0)
+        container.rowconfigure(1, weight=3)
+        container.rowconfigure(2, weight=1)
         container.rowconfigure(3, weight=0)
         container.columnconfigure(0, weight=1)
 
+        header = ttk.Frame(container, padding=(16, 12), style="Header.TFrame")
+        header.grid(row=0, column=0, sticky="we", pady=(0, 12))
+        header.columnconfigure(1, weight=1)
+        ttk.Frame(header, width=4, style="AccentRail.TFrame").grid(row=0, column=0, rowspan=2, sticky="ns", padx=(0, 12))
+        ttk.Label(header, text="Batch Text Transformer", style="HeaderTitle.TLabel").grid(row=0, column=1, sticky="w")
+        ttk.Label(header, text="Replace, delete, and filter text across files", style="HeaderMeta.TLabel").grid(row=1, column=1, sticky="w", pady=(2, 0))
+
         self.paned = ttk.Panedwindow(container, orient=tk.HORIZONTAL)
-        self.paned.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
+        self.paned.grid(row=1, column=0, sticky="nsew", pady=(0, 10))
         self._sashes_initialized = False
         self.paned.bind("<Configure>", self._on_paned_configure)
 
         # 1) 파일 리스트
-        file_frame = ttk.Frame(self.paned)
+        file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         file_frame.columnconfigure(0, weight=1)
-        ttk.Label(file_frame, text="Input Text Files:").grid(row=0, column=0, sticky="w")
+        ttk.Label(file_frame, text="Input Files", style="Section.TLabel").grid(row=0, column=0, sticky="w")
 
         self.file_listbox = tk.Listbox(
-            file_frame, selectmode="extended",
-            bg="#3B4252", fg="#ECEFF4", selectbackground="#81A1C1", bd=1, relief="solid")
-        self.file_listbox.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
+            file_frame, selectmode="extended")
+        self._style_listbox(self.file_listbox)
+        self.file_listbox.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
         self.file_listbox.bind("<Delete>", self.delete_selected)
         self.file_listbox.bind("<<ListboxSelect>>", self.on_file_selection_changed)
 
         self.hsb_file = ttk.Scrollbar(file_frame, orient="horizontal", command=self.file_listbox.xview)
         self.hsb_file.grid(row=2, column=0, sticky="we")
         self.vsb_file = ttk.Scrollbar(file_frame, orient="vertical", command=self.file_listbox.yview)
-        self.vsb_file.grid(row=1, column=1, sticky="ns", pady=(5, 0))
+        self.vsb_file.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.file_listbox.config(xscrollcommand=self.hsb_file.set, yscrollcommand=self.vsb_file.set)
 
         if DND_TYPE == 'tkinterdnd2':
@@ -138,46 +411,53 @@ class WordReplacerGUI:
         elif DND_TYPE == 'tkdnd':
             TkDND(master).bindtarget(self.file_listbox, self.on_files_dropped, 'text/uri-list')
 
-        btn_frame = ttk.Frame(file_frame)
-        btn_frame.grid(row=3, column=0, sticky="w", pady=6)
+        btn_frame = ttk.Frame(file_frame, style="Panel.TFrame")
+        btn_frame.grid(row=3, column=0, sticky="w", pady=(8, 6))
         self.browse_btn = ttk.Button(btn_frame, text="Browse Files", command=self.on_browse)
-        self.browse_btn.pack(side="left", padx=5)
+        self.browse_btn.pack(side="left", padx=(0, 8))
         self.clear_btn = ttk.Button(btn_frame, text="Clear List", command=self.on_clear)
-        self.clear_btn.pack(side="left", padx=5)
+        self.clear_btn.pack(side="left")
         if DND_TYPE is None:
             dnd_text = "Drag & drop unavailable. Install tkinterdnd2/tkdnd to enable."
         else:
             dnd_text = "Drag & drop enabled."
-        self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, foreground="#88C0D0")
+        self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, style="Hint.TLabel")
         self.dnd_hint_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
 
         file_frame.rowconfigure(1, weight=1)
         self.paned.add(file_frame, weight=25)
 
         # 2) 매핑 창
-        map_frame = ttk.Frame(self.paned)
+        map_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         map_frame.rowconfigure(1, weight=1)
         map_frame.columnconfigure(0, weight=1)
-        ttk.Label(map_frame, text="Mapping (src,dst per line):").grid(row=0, column=0, sticky="w")
+        map_header = ttk.Frame(map_frame, style="Panel.TFrame")
+        map_header.grid(row=0, column=0, columnspan=2, sticky="we")
+        ttk.Label(map_header, text="Mapping", style="Section.TLabel").pack(side="left")
+        self.mapping_help_btn = ttk.Button(map_header, text="?", width=3, command=self.show_mapping_help)
+        self.mapping_help_btn.pack(side="left", padx=(8, 0))
 
-        self.map_text = tk.Text(map_frame, wrap=tk.NONE, font=("Consolas", 11),
-                                bg="#3B4252", fg="#ECEFF4", insertbackground="#ECEFF4", bd=0)
-        self.map_text.grid(row=1, column=0, sticky="nsew", pady=(5, 0))
+        self.map_text = tk.Text(map_frame, wrap=tk.NONE, font=self.MONO_FONT)
+        self._style_text_widget(self.map_text)
+        self.map_text.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
 
         self.vsb_map = ttk.Scrollbar(map_frame, orient="vertical", command=self.map_text.yview)
-        self.vsb_map.grid(row=1, column=1, sticky="ns", pady=(5, 0))
+        self.vsb_map.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.hsb_map = ttk.Scrollbar(map_frame, orient="horizontal", command=self.map_text.xview)
         self.hsb_map.grid(row=2, column=0, sticky="we")
         self.map_text.config(yscrollcommand=self.vsb_map.set, xscrollcommand=self.hsb_map.set)
 
-        self.map_text.tag_configure("dup", background="#BF616A", foreground="#ECEFF4")
-        self.map_text.tag_configure("same", background="#7E57C2", foreground="#ECEFF4")
-        self.map_text.tag_configure("csv_err", underline=True, foreground="#BF616A")
-        self.map_text.tag_configure("regex_err", underline=True, foreground="#EBCB8B")
+        self.map_text.tag_configure("dup", background=c["danger"], foreground="#ffffff")
+        self.map_text.tag_configure("same", background=c["purple"], foreground="#101114")
+        self.map_text.tag_configure("csv_err", underline=True, foreground=c["danger"])
+        self.map_text.tag_configure("regex_err", underline=True, foreground=c["warning"])
+        self.map_text.tag_configure("mode_err", underline=True, foreground=c["warning"])
         self.map_text.bind("<<Modified>>", self.on_mapping_modified)
+        self.map_text.bind("<KeyRelease>", self.on_mapping_key_release)
+        self.map_text.bind("<Tab>", self.accept_mapping_autocomplete)
 
-        opts = ttk.Frame(map_frame)
-        opts.grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+        opts = ttk.Frame(map_frame, style="Panel.TFrame")
+        opts.grid(row=3, column=0, columnspan=2, sticky="w", pady=(8, 0))
         self.regex_var = tk.BooleanVar(value=False)
         self.case_var = tk.BooleanVar(value=False)
         self.regex_check = ttk.Checkbutton(opts, text="Regex Mode", variable=self.regex_var,
@@ -189,61 +469,95 @@ class WordReplacerGUI:
         self.mapping_issue_label = ttk.Label(
             map_frame,
             textvariable=self.mapping_issue_var,
-            foreground="#EBCB8B"
+            style="Warning.TLabel"
         )
-        self.mapping_issue_label.grid(row=4, column=0, columnspan=2, sticky="we", pady=(4, 0))
+        self.mapping_issue_label.grid(row=4, column=0, columnspan=2, sticky="we", pady=(6, 0))
 
         self.paned.add(map_frame, weight=15)
 
         # 3) 프리뷰 & 컨트롤
-        prev_frame = ttk.Frame(self.paned)
+        prev_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         prev_frame.rowconfigure(2, weight=1)
         prev_frame.columnconfigure(0, weight=1)
-        ttk.Label(prev_frame, text="Preview Matches:").grid(row=0, column=0, sticky="w")
+        ttk.Label(prev_frame, text="Preview Matches", style="Section.TLabel").grid(row=0, column=0, sticky="w")
 
-        self.src_listbox = tk.Listbox(prev_frame, height=5,
-                                      bg="#3B4252", fg="#ECEFF4", selectbackground="#81A1C1")
-        self.src_listbox.grid(row=1, column=0, sticky="we", pady=(5, 0))
+        self.src_listbox = tk.Listbox(prev_frame, height=5)
+        self._style_listbox(self.src_listbox)
+        self.src_listbox.grid(row=1, column=0, sticky="we", pady=(8, 0))
         self.src_listbox.bind("<<ListboxSelect>>", lambda e: self.schedule_preview())
         self.vsb_src = ttk.Scrollbar(prev_frame, orient="vertical", command=self.src_listbox.yview)
-        self.vsb_src.grid(row=1, column=1, sticky="ns", pady=(5, 0))
+        self.vsb_src.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.src_listbox.config(yscrollcommand=self.vsb_src.set)
 
-        self.preview_text = tk.Text(prev_frame, wrap=tk.NONE, font=("Consolas", 11),
-                                    bg="#3B4252", fg="#ECEFF4", bd=0, state="disabled")
-        self.preview_text.grid(row=2, column=0, sticky="nsew", pady=(5, 0))
+        self.preview_text = tk.Text(prev_frame, wrap=tk.NONE, font=self.MONO_FONT, state="disabled")
+        self._style_text_widget(self.preview_text)
+        self.preview_text.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
 
         # 하이라이트 태그: src만 (속도 이유)
-        self.preview_text.tag_configure("highlight_src", background="#ebcb8b", foreground="#2e3440")
+        self.preview_text.tag_configure("highlight_src", background=c["highlight"], foreground=c["bg"])
+        self.preview_text.tag_configure("delete_line_selected", background="#263a34", foreground=c["text"])
+        self.preview_text.tag_configure("delete_line_unselected", background=c["field"], foreground=c["subtle"], overstrike=1)
 
         # 스크롤바
         self.vsb_preview = ttk.Scrollbar(prev_frame, orient="vertical", command=self.preview_text.yview)
-        self.vsb_preview.grid(row=2, column=1, sticky="ns", pady=(5, 0))
+        self.vsb_preview.grid(row=2, column=1, sticky="ns", pady=(8, 0))
         self.hsb_preview = ttk.Scrollbar(prev_frame, orient="horizontal", command=self.preview_text.xview)
         self.hsb_preview.grid(row=3, column=0, sticky="we")
 
         # yview 변경을 감지해 보이는 영역만 하이라이트
         self.preview_text.config(yscrollcommand=self._on_preview_yview, xscrollcommand=self.hsb_preview.set)
         self.preview_text.bind("<Configure>", lambda e: self._schedule_visible_highlight())
+        self.preview_text.bind("<Button-1>", self.on_preview_click, add="+")
 
-        act = ttk.Frame(prev_frame)
-        act.grid(row=4, column=0, sticky="we", pady=6)
-        act_top = ttk.Frame(act)
-        act_top.pack(fill="x")
-        act_bottom = ttk.Frame(act)
-        act_bottom.pack(fill="x", pady=(6, 0))
+        act = ttk.Frame(prev_frame, padding=(12, 10), style="ActionPanel.TFrame")
+        act.grid(row=4, column=0, sticky="we", pady=(10, 6))
+        act.columnconfigure(0, weight=1)
+        act_top = ttk.Frame(act, style="Action.TFrame")
+        act_top.grid(row=0, column=0, sticky="we")
+        act_top.columnconfigure(2, weight=1)
+        act_bottom = ttk.Frame(act, style="Action.TFrame")
+        act_bottom.grid(row=2, column=0, sticky="we", pady=(10, 0))
 
-        ttk.Label(act_top, text="Context lines:", background="#2e3440", foreground="#ECEFF4").pack(
+        context_frame = ttk.Frame(act_top, style="Action.TFrame")
+        context_frame.grid(row=0, column=0, sticky="w")
+        ttk.Label(context_frame, text="Context lines", style="ActionMuted.TLabel").pack(
             side="left", padx=(0, 5))
-        self.context_lines_spinbox = tk.Spinbox(act_top, from_=0, to=30, textvariable=self.context_lines_var,
-                                                width=3, command=self.schedule_preview)
-        self.context_lines_spinbox.pack(side="left", padx=(0, 10))
-        self.context_lines_spinbox.bind("<KeyRelease>", lambda e: self.schedule_preview())
+        context_lines_stepper = ttk.Frame(context_frame, style="Action.TFrame")
+        context_lines_stepper.pack(side="left", padx=(0, 10))
+        self.context_lines_down_btn = ttk.Button(
+            context_lines_stepper,
+            text="-",
+            width=2,
+            style="Stepper.TButton",
+            command=lambda: self._adjust_context_lines(-1)
+        )
+        self.context_lines_down_btn.pack(side="left")
+        context_lines_vcmd = (self.master.register(self._validate_context_lines), "%P")
+        self.context_lines_entry = tk.Entry(
+            context_lines_stepper,
+            textvariable=self.context_lines_var,
+            width=2,
+            validate="key",
+            validatecommand=context_lines_vcmd,
+            font=self.UI_FONT_BOLD,
+        )
+        self._style_number_entry(self.context_lines_entry)
+        self.context_lines_entry.pack(side="left", padx=3, ipady=4)
+        self.context_lines_entry.bind("<KeyRelease>", lambda e: self.schedule_preview())
+        self.context_lines_entry.bind("<FocusOut>", lambda e: self._clamp_context_lines())
+        self.context_lines_up_btn = ttk.Button(
+            context_lines_stepper,
+            text="+",
+            width=2,
+            style="Stepper.TButton",
+            command=lambda: self._adjust_context_lines(1)
+        )
+        self.context_lines_up_btn.pack(side="left")
 
-        ttk.Label(act_top, text="Show:", background="#2e3440", foreground="#ECEFF4").pack(
+        ttk.Label(context_frame, text="Show", style="ActionMuted.TLabel").pack(
             side="left", padx=(0, 5))
         self.context_line_mode_combo = ttk.Combobox(
-            act_top,
+            context_frame,
             textvariable=self.context_line_mode_var,
             values=self.CONTEXT_LINE_MODE_OPTIONS,
             state="readonly",
@@ -252,95 +566,113 @@ class WordReplacerGUI:
         self.context_line_mode_combo.pack(side="left", padx=(0, 10))
         self.context_line_mode_combo.bind("<<ComboboxSelected>>", self.on_context_line_mode_changed)
 
-        ttk.Label(act_top, text="Context chars:", background="#2e3440", foreground="#ECEFF4").pack(
+        ttk.Label(context_frame, text="Context chars", style="ActionMuted.TLabel").pack(
             side="left", padx=(0, 5))
-        self.context_chars_scale = ttk.Scale(act_top, from_=0, to=self.CONTEXT_CHARS_MAX, variable=self.context_chars_var,
+        self.context_chars_scale = ttk.Scale(context_frame, from_=0, to=self.CONTEXT_CHARS_MAX, variable=self.context_chars_var,
                                              orient=tk.HORIZONTAL, length=120,
+                                             style="Action.Horizontal.TScale",
                                              command=lambda v: self.schedule_preview())
         self.context_chars_scale.pack(side="left", padx=(0, 4))
-        self.context_chars_label = ttk.Label(act_top, text=str(self.context_chars_var.get()))
-        self.context_chars_label.pack(side="left", padx=(0, 12))
+        self.context_chars_label = ttk.Label(
+            context_frame,
+            text=str(self.context_chars_var.get()),
+            width=3,
+            anchor="e",
+            style="ActionValue.TLabel"
+        )
+        self.context_chars_label.pack(side="left")
         self.context_chars_var.trace_add("write", self.on_context_chars_changed)
 
-        scope_frame = ttk.Frame(act_top)
-        scope_frame.pack(side="left", padx=(0, 12))
-        ttk.Label(scope_frame, text="Replace scope:").pack(side="left", padx=(0, 4))
+        scope_frame = ttk.Frame(act_top, style="Action.TFrame")
+        scope_frame.grid(row=0, column=1, sticky="w", padx=(22, 0))
+        ttk.Label(scope_frame, text="Replace scope", style="ActionMuted.TLabel").pack(side="left", padx=(0, 6))
         self.scope_selected_rb = ttk.Radiobutton(
             scope_frame, text="Selected", value="selected", variable=self.replace_scope_var,
-            command=self._on_replace_scope_changed
+            command=self._on_replace_scope_changed, style="Action.TRadiobutton"
         )
         self.scope_selected_rb.pack(side="left", padx=(0, 2))
         self.scope_all_rb = ttk.Radiobutton(
             scope_frame, text="All", value="all", variable=self.replace_scope_var,
-            command=self._on_replace_scope_changed
+            command=self._on_replace_scope_changed, style="Action.TRadiobutton"
         )
         self.scope_all_rb.pack(side="left")
 
-        nav_frame = ttk.Labelframe(act_top, text="Result Navigator", style="Navigator.TLabelframe")
-        nav_frame.pack(side="left", padx=(6, 10))
-        ttk.Label(nav_frame, text="File").grid(row=0, column=0, padx=(6, 4), pady=(2, 0), sticky="w")
-        ttk.Label(nav_frame, text="Mapping").grid(row=0, column=1, padx=(6, 4), pady=(2, 0), sticky="w")
+        nav_frame = ttk.Frame(act, style="Action.TFrame")
+        nav_frame.grid(row=1, column=0, sticky="we", pady=(10, 0))
+        nav_frame.columnconfigure(0, weight=1)
+        nav_frame.columnconfigure(1, weight=1)
+        ttk.Label(nav_frame, text="Result Navigator", style="ActionHeading.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 4)
+        )
+        ttk.Label(nav_frame, text="File", style="ActionMini.TLabel").grid(row=1, column=0, padx=(0, 8), sticky="w")
+        ttk.Label(nav_frame, text="Mapping", style="ActionMini.TLabel").grid(row=1, column=1, padx=(0, 8), sticky="w")
         self.file_jump_combo = ttk.Combobox(nav_frame, textvariable=self.file_jump_var, state="readonly", width=24)
-        self.file_jump_combo.grid(row=1, column=0, padx=(6, 4), pady=(0, 6), sticky="we")
+        self.file_jump_combo.grid(row=2, column=0, padx=(0, 8), pady=(2, 0), sticky="we")
         self.file_jump_combo.bind("<<ComboboxSelected>>", self.on_file_jump_selected)
         self.mapping_jump_combo = ttk.Combobox(
             nav_frame, textvariable=self.mapping_jump_var, state="readonly", width=22
         )
-        self.mapping_jump_combo.grid(row=1, column=1, padx=(6, 4), pady=(0, 6), sticky="we")
+        self.mapping_jump_combo.grid(row=2, column=1, padx=(0, 8), pady=(2, 0), sticky="we")
         self.mapping_jump_combo.bind("<<ComboboxSelected>>", self.on_mapping_jump_selected)
-        self.file_jump_btn = ttk.Button(nav_frame, text="Go", command=self.jump_to_selected_file, width=5)
-        self.file_jump_btn.grid(row=1, column=2, padx=(4, 6), pady=(0, 6))
+        self.file_jump_btn = ttk.Button(nav_frame, text="Jump", command=self.jump_to_selected_file, width=7)
+        self.file_jump_btn.grid(row=2, column=2, pady=(2, 0), sticky="e")
 
-        btn_row_right = ttk.Frame(act_bottom)
-        btn_row_right.pack(side="left")
+        btn_row_right = ttk.Frame(act_bottom, style="Action.TFrame")
+        btn_row_right.pack(side="right")
 
-        self.replace_btn = ttk.Button(btn_row_right, text="Replace", style="Accent.TButton", command=self.start_replace)
-        self.replace_btn.pack(side="left", padx=5)
-        self.replace_btn.state(["disabled"])
-
-        self.cancel_btn = ttk.Button(btn_row_right, text="Cancel", command=self.cancel_replace)
-        self.cancel_btn.pack(side="left", padx=5)
-        self.cancel_btn.state(["disabled"])
+        self.copy_preview_btn = ttk.Button(btn_row_right, text="Copy Preview", command=self.copy_preview)
+        self.copy_preview_btn.pack(side="left", padx=(0, 8))
 
         self.undo_btn = ttk.Button(btn_row_right, text="Undo", command=self.undo_replace)
         self.undo_btn.state(["disabled"])
-        self.undo_btn.pack(side="left", padx=5)
+        self.undo_btn.pack(side="left", padx=(0, 8))
 
-        self.copy_preview_btn = ttk.Button(btn_row_right, text="Copy Preview", command=self.copy_preview)
-        self.copy_preview_btn.pack(side="left", padx=5)
+        self.cancel_btn = ttk.Button(btn_row_right, text="Cancel", style="Danger.TButton", command=self.cancel_replace)
+        self.cancel_btn.pack(side="left", padx=(0, 8))
+        self.cancel_btn.state(["disabled"])
 
-        self.preview_status_label = ttk.Label(prev_frame, text="", background="#2e3440", foreground="#ECEFF4")
+        self.replace_btn = ttk.Button(btn_row_right, text="Apply", style="Accent.TButton", command=self.start_replace)
+        self.replace_btn.pack(side="left")
+        self.replace_btn.state(["disabled"])
+
+        self.preview_status_label = ttk.Label(prev_frame, text="", style="Status.TLabel")
         self.preview_status_label.grid(row=5, column=0, sticky="we", pady=(0, 5))
 
         self.paned.add(prev_frame, weight=60)
 
         # 4) 로그
-        log_frame = ttk.Frame(container)
-        log_frame.grid(row=1, column=0, sticky="nsew", pady=(10, 0))
-        ttk.Label(log_frame, text="Log Viewer:").pack(anchor="w")
+        log_frame = ttk.Frame(container, padding=(12, 10), style="Panel.TFrame")
+        log_frame.grid(row=2, column=0, sticky="nsew", pady=(10, 0))
+        log_frame.rowconfigure(1, weight=1)
+        log_frame.columnconfigure(0, weight=1)
+        ttk.Label(log_frame, text="Activity Log", style="Section.TLabel").grid(row=0, column=0, sticky="w")
 
-        self.log_area = tk.Text(log_frame, wrap=tk.NONE, height=6,
-                                bg="#3B4252", fg="#ECEFF4", bd=0, state="disabled")
-        self.log_area.pack(fill=tk.BOTH, expand=True, side="left")
+        self.log_area = tk.Text(log_frame, wrap=tk.NONE, height=6, font=self.MONO_FONT, state="disabled")
+        self._style_text_widget(self.log_area)
+        self.log_area.grid(row=1, column=0, sticky="nsew", pady=(8, 0))
 
         self.hsb_log = ttk.Scrollbar(log_frame, orient="horizontal", command=self.log_area.xview)
-        self.hsb_log.pack(fill="x", side="bottom")
+        self.hsb_log.grid(row=2, column=0, sticky="we")
         self.vsb_log = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_area.yview)
-        self.vsb_log.pack(fill="y", side="right")
+        self.vsb_log.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.log_area.config(yscrollcommand=self.vsb_log.set, xscrollcommand=self.hsb_log.set)
 
         # 진행 바
-        self.replace_status_label = ttk.Label(container, text="Ready.", background="#2e3440", foreground="#ECEFF4")
-        self.replace_status_label.grid(row=2, column=0, sticky="we")
-        self.progress = ttk.Progressbar(container, mode="determinate")
-        self.progress.grid(row=3, column=0, sticky="we", pady=(5, 0))
+        status_frame = ttk.Frame(container, padding=(12, 9), style="StatusBar.TFrame")
+        status_frame.grid(row=3, column=0, sticky="we", pady=(10, 0))
+        status_frame.columnconfigure(0, weight=1)
+        self.replace_status_label = ttk.Label(status_frame, text="Ready.", style="StatusBar.TLabel")
+        self.replace_status_label.grid(row=0, column=0, sticky="we", padx=(0, 12))
+        self.progress = ttk.Progressbar(status_frame, mode="determinate", length=260)
+        self.progress.grid(row=0, column=1, sticky="we")
 
         # 스크롤바 자동 숨김
         for widget, vsb, hsb in [
             (self.file_listbox, self.vsb_file, self.hsb_file),
             (self.map_text,     self.vsb_map,  self.hsb_map),
             (self.src_listbox,  self.vsb_src,  None),
-            (self.preview_text, self.vsb_preview, self.hsb_preview)
+            (self.preview_text, self.vsb_preview, self.hsb_preview),
+            (self.log_area,     self.vsb_log,  self.hsb_log)
         ]:
             widget.bind("<Configure>", lambda e, w=widget, v=vsb, h=hsb: self._check_scrollbars(w, v, h))
 
@@ -442,8 +774,128 @@ class WordReplacerGUI:
             return [self.file_listbox.get(i) for i in self.file_listbox.curselection()]
         return [self.file_listbox.get(i) for i in range(self.file_listbox.size())]
 
+    def _normalize_mapping_mode_token(self, token: str) -> str:
+        return token.strip().lower().replace("_", "-").replace(" ", "-")
+
+    def _parse_mapping_row(self, line: str) -> tuple[str, str, str] | None:
+        parts = next(csv.reader([line], skipinitialspace=True), [])
+        if not parts:
+            return None
+
+        src = parts[0].strip()
+        if not src:
+            return None
+
+        if len(parts) == 1:
+            return src, "", self.MAP_MODE_PREVIEW
+
+        dst = parts[1].strip()
+        if len(parts) > 2:
+            mode_token = self._normalize_mapping_mode_token(parts[2])
+            if mode_token in self.DELETE_LINE_MODE_ALIASES:
+                return src, "", self.MAP_MODE_DELETE_LINE
+            if mode_token:
+                return src, dst, self.MAP_MODE_INVALID
+
+        if dst:
+            return src, dst, self.MAP_MODE_REPLACE
+        return src, "", self.MAP_MODE_DELETE_WORD
+
+    def _autocomplete_delete_line_mode(self):
+        insert = self.map_text.index(tk.INSERT)
+        line_start = self.map_text.index(f"{insert} linestart")
+        before_cursor = self.map_text.get(line_start, insert)
+        marker = before_cursor.rfind(",,")
+        if marker == -1:
+            return
+
+        src_part = before_cursor[:marker].strip()
+        typed_mode = before_cursor[marker + 2:]
+        if not src_part or "," in typed_mode:
+            return
+        if not re.fullmatch(r"[A-Za-z_-]*", typed_mode):
+            return
+
+        normalized_mode = self._normalize_mapping_mode_token(typed_mode)
+        completion = self.MAP_MODE_DELETE_LINE
+        if normalized_mode == completion or not completion.startswith(normalized_mode):
+            return
+
+        mode_start = f"{line_start}+{marker + 2}c"
+        self.map_text.delete(mode_start, insert)
+        self.map_text.insert(mode_start, completion)
+
+        keep_len = len(typed_mode)
+        sel_start = f"{mode_start}+{keep_len}c"
+        sel_end = f"{mode_start}+{len(completion)}c"
+        self.map_text.mark_set(tk.INSERT, sel_end)
+        self.map_text.tag_remove(tk.SEL, "1.0", tk.END)
+        if self.map_text.compare(sel_start, "<", sel_end):
+            self.map_text.tag_add(tk.SEL, sel_start, sel_end)
+        self.map_text.see(sel_end)
+
+    def _mapping_src(self, mapping) -> str:
+        return mapping[0] if mapping else ""
+
+    def _mapping_dst(self, mapping) -> str:
+        return mapping[1] if len(mapping) > 1 else ""
+
+    def _mapping_mode(self, mapping) -> str:
+        if len(mapping) > 2:
+            return mapping[2]
+        return self.MAP_MODE_REPLACE if self._mapping_dst(mapping) else self.MAP_MODE_DELETE_WORD
+
+    def _mapping_is_effective(self, mapping) -> bool:
+        mode = self._mapping_mode(mapping)
+        return bool(self._mapping_src(mapping)) and mode not in (self.MAP_MODE_PREVIEW, self.MAP_MODE_INVALID)
+
+    def _mapping_preview_dst(self, mapping) -> str:
+        mode = self._mapping_mode(mapping)
+        if mode == self.MAP_MODE_DELETE_LINE:
+            return "[delete line]"
+        return self._mapping_dst(mapping)
+
+    def _format_mapping_list_label(self, mapping) -> str:
+        src = self._mapping_src(mapping)
+        dst = self._mapping_dst(mapping)
+        mode = self._mapping_mode(mapping)
+        if mode == self.MAP_MODE_DELETE_LINE:
+            return f"{src} (delete line)"
+        if mode == self.MAP_MODE_DELETE_WORD:
+            return f"{src} (delete word)"
+        if mode == self.MAP_MODE_INVALID:
+            return f"{src} (invalid mode)"
+        if dst:
+            return f"{src} -> {dst}"
+        return src
+
+    def _format_mapping_summary_label(self, mapping) -> str:
+        src = self._mapping_src(mapping)
+        mode = self._mapping_mode(mapping)
+        if mode == self.MAP_MODE_DELETE_LINE:
+            return f"{src}[line]"
+        if mode == self.MAP_MODE_DELETE_WORD:
+            return f"{src}[delete]"
+        return src
+
+    def _format_mapping_nav_label(self, index: int, mapping, count: int) -> str:
+        label = self._format_mapping_list_label(mapping)
+        if len(label) > 44:
+            label = label[:41] + "..."
+        return f"{index}. {label} ({count})"
+
+    def _format_mapping_log_label(self, mapping) -> str:
+        src = self._mapping_src(mapping)
+        dst = self._mapping_dst(mapping)
+        mode = self._mapping_mode(mapping)
+        if mode == self.MAP_MODE_DELETE_LINE:
+            return f"delete lines containing '{src}'"
+        if mode == self.MAP_MODE_DELETE_WORD:
+            return f"delete '{src}'"
+        return f"'{src}' -> '{dst}'"
+
     def _get_effective_replace_pairs(self):
-        return [(s, d) for (s, d) in self.mapping_pairs if s and d]
+        return [mapping for mapping in self.mapping_pairs if self._mapping_is_effective(mapping)]
 
     def _set_preview_output(self, text: str):
         self.preview_text.config(state="normal")
@@ -452,6 +904,99 @@ class WordReplacerGUI:
             self.preview_text.insert("1.0", text)
         self.preview_text.config(state="disabled")
         self._check_scrollbars(self.preview_text, self.vsb_preview, self.hsb_preview)
+
+    def _make_delete_line_selection_key(self, file_path: str, mapping, line_no: int) -> tuple[str, str, int]:
+        return (os.path.normcase(os.path.abspath(file_path)), self._mapping_src(mapping), int(line_no))
+
+    def _find_preview_file_for_header(self, basename: str, files: list[str], cursor: int) -> tuple[str | None, int]:
+        for i in range(cursor + 1, len(files)):
+            if os.path.basename(files[i]) == basename:
+                return files[i], i
+        for i, path in enumerate(files):
+            if os.path.basename(path) == basename:
+                return path, i
+        return None, cursor
+
+    def _rebuild_delete_line_preview_index(self, files, targets, text, ranges, line_starts):
+        self._pv_delete_line_line_keys = {}
+        delete_line_targets = {
+            (self._mapping_src(mapping), self._mapping_preview_dst(mapping)): mapping
+            for mapping in targets
+            if self._mapping_mode(mapping) == self.MAP_MODE_DELETE_LINE
+        }
+        if not delete_line_targets or not text or not ranges:
+            return
+
+        header_re = re.compile(r"^([^:\r\n]+): '(.*)' -> '(.*)'$")
+        line_re = re.compile(r"^\s+L(\d+):")
+        line_candidates: dict[int, tuple[str, str, int]] = {}
+        current_file = None
+        current_mapping = None
+        cursor = -1
+
+        for preview_line_no, line in enumerate(text.splitlines(), start=1):
+            hm = header_re.match(line.rstrip("\r\n"))
+            if hm:
+                basename, src, dst = hm.group(1), hm.group(2), hm.group(3)
+                current_mapping = delete_line_targets.get((src, dst))
+                if current_mapping:
+                    current_file, cursor = self._find_preview_file_for_header(basename, files, cursor)
+                else:
+                    current_file = None
+                continue
+
+            if not current_file or not current_mapping:
+                continue
+            lm = line_re.match(line)
+            if not lm:
+                continue
+            actual_line_no = int(lm.group(1))
+            line_candidates[preview_line_no] = self._make_delete_line_selection_key(
+                current_file, current_mapping, actual_line_no
+            )
+
+        for start, _ in ranges:
+            preview_line_no = bisect.bisect_right(line_starts, start)
+            key = line_candidates.get(preview_line_no)
+            if key:
+                self._pv_delete_line_line_keys[preview_line_no] = key
+
+    def _delete_line_selection_counts(self) -> tuple[int, int]:
+        keys = set(self._pv_delete_line_line_keys.values())
+        total = len(keys)
+        selected = sum(1 for key in keys if self.delete_line_selection_overrides.get(key, True))
+        return selected, total
+
+    def _apply_delete_line_selection_tags(self):
+        self.preview_text.tag_remove("delete_line_selected", "1.0", tk.END)
+        self.preview_text.tag_remove("delete_line_unselected", "1.0", tk.END)
+        for preview_line_no, key in self._pv_delete_line_line_keys.items():
+            tag = (
+                "delete_line_selected"
+                if self.delete_line_selection_overrides.get(key, True)
+                else "delete_line_unselected"
+            )
+            self.preview_text.tag_add(tag, f"{preview_line_no}.0", f"{preview_line_no}.end")
+        self.preview_text.tag_raise("highlight_src")
+
+    def on_preview_click(self, event):
+        try:
+            preview_line_no = int(self.preview_text.index(f"@{event.x},{event.y}").split(".")[0])
+        except Exception:
+            return None
+
+        key = self._pv_delete_line_line_keys.get(preview_line_no)
+        if not key:
+            return None
+
+        selected = self.delete_line_selection_overrides.get(key, True)
+        self.delete_line_selection_overrides[key] = not selected
+        self._apply_delete_line_selection_tags()
+        selected_count, total_count = self._delete_line_selection_counts()
+        self.preview_status_label.config(
+            text=f"Delete-line selection: {selected_count}/{total_count} lines selected. Click rows to toggle."
+        )
+        return "break"
 
     def _set_file_shortcuts(self, items: list[tuple[str, list[tuple[str, int | None]]]]):
         self._pv_jump_nav = {file_label: dict(mapping_items) for file_label, mapping_items in items}
@@ -520,13 +1065,15 @@ class WordReplacerGUI:
         self.file_listbox.config(state=list_state)
         self.map_text.config(state=text_state)
         self.src_listbox.config(state=list_state)
-        self.context_lines_spinbox.config(state=list_state)
+        self.context_lines_entry.config(state=list_state)
 
         if running:
             self.regex_check.state(["disabled"])
             self.case_check.state(["disabled"])
             self.scope_selected_rb.state(["disabled"])
             self.scope_all_rb.state(["disabled"])
+            self.context_lines_down_btn.state(["disabled"])
+            self.context_lines_up_btn.state(["disabled"])
             self.context_line_mode_combo.state(["disabled"])
             self.context_chars_scale.state(["disabled"])
             self.browse_btn.state(["disabled"])
@@ -538,6 +1085,8 @@ class WordReplacerGUI:
             self.case_check.state(["!disabled"])
             self.scope_selected_rb.state(["!disabled"])
             self.scope_all_rb.state(["!disabled"])
+            self.context_lines_down_btn.state(["!disabled"])
+            self.context_lines_up_btn.state(["!disabled"])
             self.context_line_mode_combo.state(["!disabled"])
             self.context_chars_scale.state(["!disabled"])
             self.browse_btn.state(["!disabled"])
@@ -577,6 +1126,29 @@ class WordReplacerGUI:
     def on_context_chars_changed(self, *_):
         self.context_chars_label.config(text=str(self.context_chars_var.get()))
 
+    def _validate_context_lines(self, value: str) -> bool:
+        if not value.isdigit() or len(value) > 2:
+            return False
+        return 0 <= int(value) <= 30
+
+    def _clamp_context_lines(self):
+        try:
+            value = int(self.context_lines_var.get())
+        except (tk.TclError, ValueError):
+            value = 0
+        self.context_lines_var.set(max(0, min(30, value)))
+        self.schedule_preview()
+
+    def _adjust_context_lines(self, delta: int):
+        if self.is_replacing:
+            return
+        try:
+            value = int(self.context_lines_var.get())
+        except (tk.TclError, ValueError):
+            value = 0
+        self.context_lines_var.set(max(0, min(30, value + delta)))
+        self.schedule_preview()
+
     def _normalize_context_line_mode(self, mode: str | None) -> str:
         if mode in self.CONTEXT_LINE_MODE_OPTIONS:
             return mode
@@ -598,6 +1170,41 @@ class WordReplacerGUI:
         self._refresh_action_state()
 
     # ────────────────────── 이벤트 ────────────────────── #
+    def show_mapping_help(self):
+        messagebox.showinfo(
+            "Mapping examples",
+            "Mapping 입력 예시\n\n"
+            "foo,bar\n"
+            "  foo를 bar로 치환합니다.\n\n"
+            "foo,\n"
+            "  매칭된 foo 텍스트를 삭제합니다.\n\n"
+            "foo,,delete-line\n"
+            "  foo가 포함된 라인 전체를 삭제합니다.\n\n"
+            "참고\n"
+            "- source가 비어 있으면 무시됩니다.\n"
+            "- source만 있는 줄은 preview 전용입니다.\n"
+            "- ,,를 입력하면 delete-line이 자동완성됩니다.\n"
+            "- delete-line 매치는 Preview에서 기본 선택됩니다. 해당 줄을 클릭하면 적용 여부를 토글합니다.\n"
+            "- 쉼표나 앞뒤 공백이 필요하면 CSV 따옴표를 사용하세요.\n\n"
+            "Regex Mode 예시\n\n"
+            "foo\\w*,bar\n"
+            "  foo로 시작하는 단어를 치환합니다. 예: foo, foobar.\n\n"
+            "\\w*foo,bar\n"
+            "  foo로 끝나는 단어를 치환합니다. 예: myfoo.\n\n"
+            "fo.*o,bar\n"
+            "  fo로 시작하고 임의의 문자열 뒤 o로 끝나는 텍스트를 치환합니다.\n\n"
+            "^foo.*,,delete-line\n"
+            "  foo로 시작하는 라인을 삭제합니다.\n\n"
+            ".*foo$,,delete-line\n"
+            "  foo로 끝나는 라인을 삭제합니다.\n\n"
+            "Regex 기호\n"
+            "- . : 임의의 문자 1개\n"
+            "- * : 앞 패턴이 0번 이상 반복\n"
+            "- \\w : 영문자, 숫자, 밑줄\n"
+            "- ^ : 시작 위치\n"
+            "- $ : 끝 위치"
+        )
+
     def on_browse(self):
         files = filedialog.askopenfilenames(filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
         self._add_files(files, source="Browse Files")
@@ -607,6 +1214,7 @@ class WordReplacerGUI:
         self.file_listbox.delete(0, tk.END)
         self.file_cache.clear()
         self._clear_cached_file_derivatives()
+        self.delete_line_selection_overrides.clear()
         self.log("File list cleared")
         self.update_src_list()
 
@@ -616,6 +1224,12 @@ class WordReplacerGUI:
             self.file_listbox.delete(i)
             self.file_cache.pop(removed, None)
             self._clear_cached_file_derivatives(removed)
+            file_key = os.path.normcase(os.path.abspath(removed))
+            self.delete_line_selection_overrides = {
+                key: selected
+                for key, selected in self.delete_line_selection_overrides.items()
+                if key[0] != file_key
+            }
             self.log(f"File removed: {os.path.basename(removed)}")
         self.update_src_list()
         return "break"
@@ -628,20 +1242,51 @@ class WordReplacerGUI:
     def on_mapping_modified(self, event):
         if self.map_text.edit_modified():
             self.map_text.edit_modified(False)
+            self.delete_line_selection_overrides.clear()
             self._highlight_mapping()
             self.update_src_list()
+
+    def on_mapping_key_release(self, event):
+        if event.keysym in {
+            "BackSpace",
+            "Delete",
+            "Left",
+            "Right",
+            "Up",
+            "Down",
+            "Home",
+            "End",
+            "Prior",
+            "Next",
+            "Escape",
+            "Return",
+        }:
+            return
+        if not event.char:
+            return
+        self._autocomplete_delete_line_mode()
+
+    def accept_mapping_autocomplete(self, event=None):
+        ranges = self.map_text.tag_ranges(tk.SEL)
+        if not ranges:
+            return None
+        self.map_text.mark_set(tk.INSERT, ranges[-1])
+        self.map_text.tag_remove(tk.SEL, "1.0", tk.END)
+        return "break"
 
     def _highlight_mapping(self):
         self.map_text.tag_remove("dup", "1.0", tk.END)
         self.map_text.tag_remove("same", "1.0", tk.END)
         self.map_text.tag_remove("csv_err", "1.0", tk.END)
         self.map_text.tag_remove("regex_err", "1.0", tk.END)
+        self.map_text.tag_remove("mode_err", "1.0", tk.END)
         lines = self.map_text.get("1.0", "end-1c").splitlines()
         src_line_map: dict[str, list[int]] = {}
         duplicate_lines: set[int] = set()
         same_lines: list[int] = []
         csv_err_lines: list[int] = []
         regex_err_lines: list[int] = []
+        mode_err_lines: list[int] = []
         regex = self.regex_var.get()
         flags = (0 if self.case_var.get() else re.IGNORECASE)
 
@@ -650,17 +1295,21 @@ class WordReplacerGUI:
             if not stripped or stripped.startswith("#"):
                 continue
             try:
-                parts = next(csv.reader([ln], skipinitialspace=True), [])
+                mapping = self._parse_mapping_row(ln)
             except csv.Error:
                 csv_err_lines.append(i)
                 self.map_text.tag_add("csv_err", f"{i}.0", f"{i}.end")
                 continue
 
-            if not parts:
+            if not mapping:
                 continue
 
-            src = parts[0].strip()
-            dst = parts[1].strip() if len(parts) > 1 else ""
+            src = self._mapping_src(mapping)
+            dst = self._mapping_dst(mapping)
+            mode = self._mapping_mode(mapping)
+            if mode == self.MAP_MODE_INVALID:
+                mode_err_lines.append(i)
+                self.map_text.tag_add("mode_err", f"{i}.0", f"{i}.end")
             if src:
                 src_line_map.setdefault(src, []).append(i)
                 if regex:
@@ -669,7 +1318,7 @@ class WordReplacerGUI:
                     except re.error:
                         regex_err_lines.append(i)
                         self.map_text.tag_add("regex_err", f"{i}.0", f"{i}.end")
-            if src and dst and src == dst:
+            if mode == self.MAP_MODE_REPLACE and src and dst and src == dst:
                 same_lines.append(i)
                 self.map_text.tag_add("same", f"{i}.0", f"{i}.end")
 
@@ -696,6 +1345,8 @@ class WordReplacerGUI:
             issues.append(f"CSV parse error lines [{short_lines(csv_err_lines)}]")
         if regex_err_lines:
             issues.append(f"invalid regex lines [{short_lines(regex_err_lines)}]")
+        if mode_err_lines:
+            issues.append(f"invalid mode lines [{short_lines(mode_err_lines)}]")
 
         if issues:
             self.mapping_issue_var.set("Mapping issues: " + " | ".join(issues))
@@ -708,7 +1359,8 @@ class WordReplacerGUI:
                 data = json.loads(SESSION_FILE.read_text(encoding="utf-8"))
                 self._add_files(data.get("files", []), source="Session", log_result=False)
                 self.map_text.insert("1.0", data.get("mapping", ""))
-                self.context_lines_var.set(int(data.get("context_lines", 0)))
+                loaded_context_lines = int(data.get("context_lines", 0))
+                self.context_lines_var.set(max(0, min(30, loaded_context_lines)))
                 self.context_chars_var.set(int(data.get("context_chars", self.CONTEXT_CHARS_MAX)))
                 self.context_line_mode_var.set(
                     self._normalize_context_line_mode(data.get("context_line_mode", self.CONTEXT_LINE_MODE_BOTH))
@@ -742,18 +1394,15 @@ class WordReplacerGUI:
             if not stripped or stripped.startswith("#"):
                 continue
             try:
-                parts = next(csv.reader([ln], skipinitialspace=True), [])
+                mapping = self._parse_mapping_row(ln)
             except csv.Error:
                 continue
-            if parts:
-                src = parts[0].strip()
-                if not src:
-                    continue
-                self.mapping_pairs.append((src, parts[1].strip() if len(parts) > 1 else ""))
+            if mapping:
+                self.mapping_pairs.append(mapping)
         self.src_listbox.delete(0, tk.END)
-        self.src_listbox.insert(tk.END, "All src words")
-        for s, _ in self.mapping_pairs:
-            self.src_listbox.insert(tk.END, s)
+        self.src_listbox.insert(tk.END, "All mappings")
+        for mapping in self.mapping_pairs:
+            self.src_listbox.insert(tk.END, self._format_mapping_list_label(mapping))
         if prev_sel and prev_sel[0] < self.src_listbox.size():
             self.src_listbox.selection_set(prev_sel[0])
         else:
@@ -772,6 +1421,7 @@ class WordReplacerGUI:
             self._pv_src_ranges = []
             self._pv_src_starts = []
             self._pv_line_starts = []
+            self._pv_delete_line_line_keys = {}
             self._set_file_shortcuts([])
             self._set_preview_output("No preview available. Add files and mappings.\n")
             self.preview_status_label.config(text="Preview idle.")
@@ -798,6 +1448,7 @@ class WordReplacerGUI:
 
         self.preview_status_label.config(text="Searching...")
         self._set_file_shortcuts([])
+        self._pv_delete_line_line_keys = {}
         self._set_preview_output("Rendering preview...\n")
 
         if self.preview_thread and self.preview_thread.is_alive():
@@ -829,13 +1480,18 @@ class WordReplacerGUI:
                 self._pv_src_ranges = src_ranges
                 self._pv_src_starts = [a for a, _ in src_ranges]
                 self._pv_line_starts = line_starts
+                self._rebuild_delete_line_preview_index(files, targets, text_out, src_ranges, line_starts)
 
                 # UI 반영 (한 번에 insert)
                 self._set_preview_output(text_out)
+                self._apply_delete_line_selection_tags()
                 self._set_file_shortcuts(file_shortcuts)
                 status = f"Done. {match_count} matches (grouped; visible highlighting)."
                 if truncated_by_matches or truncated_by_size:
                     status += " Preview truncated."
+                selected_count, total_count = self._delete_line_selection_counts()
+                if total_count:
+                    status += f" Delete-line selected: {selected_count}/{total_count}. Click rows to toggle."
                 self.preview_status_label.config(text=status)
 
                 # 첫 하이라이트 도색
@@ -869,9 +1525,9 @@ class WordReplacerGUI:
 
     def _build_preview_summary(self, targets, counts, capped):
         parts = []
-        for i, (src, _) in enumerate(targets):
+        for i, mapping in enumerate(targets):
             suffix = "+" if i < len(capped) and capped[i] else ""
-            parts.append(f"{src}:{counts[i]}{suffix}")
+            parts.append(f"{self._format_mapping_summary_label(mapping)}:{counts[i]}{suffix}")
         head = "Summary: " + ", ".join(parts)
         if any(capped):
             return head + "\n(+ means more matches exist)\n\n"
@@ -898,13 +1554,14 @@ class WordReplacerGUI:
         capped = [False] * N
         truncated = False
 
-        for k, (s, d) in enumerate(targets):
+        for k, mapping in enumerate(targets):
             if seq != self.preview_seq:
                 break
+            s = self._mapping_src(mapping)
             if not s:
                 continue
             t_text, t_ranges, t_trunc = self._build_single_literal(
-                files, (s, d), case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq,
+                files, mapping, case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq,
                 max_matches_limit=per_target_limit
             )
             _, block = self._split_preview_summary_block(t_text)
@@ -981,8 +1638,8 @@ class WordReplacerGUI:
         first_offsets_per_file: list[int | None] = [None] * len(files)
         first_offsets_per_file_target: list[list[int | None]] = [[None] * len(targets) for _ in files]
         target_key_to_idx: dict[tuple[str, str], int] = {}
-        for ti, (s, d) in enumerate(targets):
-            target_key_to_idx.setdefault((s, d), ti)
+        for ti, mapping in enumerate(targets):
+            target_key_to_idx.setdefault((self._mapping_src(mapping), self._mapping_preview_dst(mapping)), ti)
         cursor = -1
 
         for base, src, dst, hdr_off, mcnt in sections:
@@ -1001,8 +1658,8 @@ class WordReplacerGUI:
             counts_per_file[idx] += mcnt
             t_idx = target_key_to_idx.get((src, dst))
             if t_idx is None:
-                for j, (s, _) in enumerate(targets):
-                    if s == src:
+                for j, mapping in enumerate(targets):
+                    if self._mapping_src(mapping) == src:
                         t_idx = j
                         break
             if t_idx is not None:
@@ -1023,7 +1680,7 @@ class WordReplacerGUI:
                 if targets:
                     shown = min(len(targets), detail_limit)
                     detail = [
-                        f"{targets[j][0]}:{counts_per_file_by_target[i - 1][j]}"
+                        f"{self._format_mapping_summary_label(targets[j])}:{counts_per_file_by_target[i - 1][j]}"
                         for j in range(shown)
                     ]
                     if len(targets) > detail_limit:
@@ -1048,14 +1705,9 @@ class WordReplacerGUI:
             mapping_items: list[tuple[str, int | None]] = []
             off = first_offsets_per_file[i - 1]
             mapping_items.append(("All mappings", (off + shift) if off is not None else None))
-            for j, (src, dst) in enumerate(targets):
+            for j, mapping in enumerate(targets):
                 mcnt = counts_per_file_by_target[i - 1][j]
-                src_disp = src if len(src) <= 28 else (src[:25] + "...")
-                if dst:
-                    dst_disp = dst if len(dst) <= 14 else (dst[:11] + "...")
-                    map_label = f"{j+1}. {src_disp} -> {dst_disp} ({mcnt})"
-                else:
-                    map_label = f"{j+1}. {src_disp} ({mcnt})"
+                map_label = self._format_mapping_nav_label(j + 1, mapping, mcnt)
                 moff = first_offsets_per_file_target[i - 1][j]
                 mapping_items.append((map_label, (moff + shift) if moff is not None else None))
             nav_items.append((file_label, mapping_items))
@@ -1074,14 +1726,22 @@ class WordReplacerGUI:
         L = "  L"; colon_sp = ": "; nl = "\n"; arrow = " -> "
 
         # 1) 단일 타겟 + 리터럴 + 개행 없음: 초고속 경로 (그대로 사용)
-        if len(targets) == 1 and not regex and ("\n" not in targets[0][0] and "\r" not in targets[0][0]):
+        if (
+            len(targets) == 1
+            and not regex
+            and "\n" not in self._mapping_src(targets[0])
+            and "\r" not in self._mapping_src(targets[0])
+        ):
             text, ranges, truncated = self._build_single_literal(
                 files, targets[0], case, ctx_lines, ctx_chars, show_above, show_below, L, colon_sp, nl, arrow, seq
             )
             return text, ranges, truncated
 
         # 2) 다중 타겟이고 모두 리터럴(+개행없음)인 경우: 합성 정규식 한 번으로 전부 찾기
-        all_literal = (not regex) and all(("\n" not in s and "\r" not in s) for s, _ in targets)
+        all_literal = (not regex) and all(
+            ("\n" not in self._mapping_src(mapping) and "\r" not in self._mapping_src(mapping))
+            for mapping in targets
+        )
         if all_literal and targets:
             # 소수 타겟(예: 2~6개)은 단일 고속 경로를 타겟별로 재사용하는 편이 훨씬 빠름.
             if len(targets) <= 6:
@@ -1091,7 +1751,8 @@ class WordReplacerGUI:
 
             # 그룹 이름 g0, g1, ...
             parts = []
-            for i, (s, _) in enumerate(targets):
+            for i, mapping in enumerate(targets):
+                s = self._mapping_src(mapping)
                 if s == "":
                     continue  # 빈 패턴은 스킵
                 parts.append(f"(?P<g{i}>{re.escape(s)})")
@@ -1158,7 +1819,9 @@ class WordReplacerGUI:
                             if not g: 
                                 continue
                             k = int(g[1:])  # g0 -> 0
-                            s, d = targets[k]
+                            mapping = targets[k]
+                            s = self._mapping_src(mapping)
+                            d = self._mapping_preview_dst(mapping)
                             if capped[k]:
                                 continue
                             # 파일 헤더(해당 타겟에 대해 이 파일에서 최초)
@@ -1249,8 +1912,14 @@ class WordReplacerGUI:
             return ("".join(combined), combined_ranges, truncated or any(capped))
 
         # 3) 일반 경로(정규식 포함): 라인 1패스 + 타겟별 버퍼에 분배
-        compiled = [ (re.compile(s if regex else re.escape(s), flags), s, d)
-                     for (s, d) in targets ]
+        compiled = [
+            (
+                re.compile(self._mapping_src(mapping) if regex else re.escape(self._mapping_src(mapping)), flags),
+                self._mapping_src(mapping),
+                self._mapping_preview_dst(mapping),
+            )
+            for mapping in targets
+        ]
 
         N = len(targets)
         bufs = [io.StringIO() for _ in range(N)]
@@ -1395,7 +2064,8 @@ class WordReplacerGUI:
     def _build_single_literal_no_line_context(
         self, files, target, case, ctx_chars, L, colon_sp, nl, arrow, seq, max_matches_limit=None
     ):
-        s, d = target
+        s = self._mapping_src(target)
+        d = self._mapping_preview_dst(target)
         s_find = s if case else s.lower()
         s_len = len(s)
         step = s_len if s_len else 1
@@ -1498,7 +2168,7 @@ class WordReplacerGUI:
                 write(tail); pos += len(tail)
 
         capped = shown_total >= max_matches
-        summary = self._build_preview_summary([(s, d)], [shown_total], [capped])
+        summary = self._build_preview_summary([target], [shown_total], [capped])
         summary_len = len(summary)
         shifted_ranges = [(a + summary_len, b + summary_len) for a, b in ranges]
         return summary + out.getvalue(), shifted_ranges, truncated or capped
@@ -1507,7 +2177,8 @@ class WordReplacerGUI:
         self, files, target, case, ctx_lines, ctx_chars, show_above, show_below,
         L, colon_sp, nl, arrow, seq, max_matches_limit=None
     ):
-        s, d = target
+        s = self._mapping_src(target)
+        d = self._mapping_preview_dst(target)
         s_find = s if case else s.lower()
         s_len = len(s)
         step = s_len if s_len else 1
@@ -1720,7 +2391,7 @@ class WordReplacerGUI:
                 write(tail); pos += len(tail)
 
         capped = shown_total >= max_matches
-        summary = self._build_preview_summary([(s, d)], [shown_total], [capped])
+        summary = self._build_preview_summary([target], [shown_total], [capped])
         summary_len = len(summary)
         shifted_ranges = [(a + summary_len, b + summary_len) for a, b in ranges]
         return summary + out.getvalue(), shifted_ranges, truncated or capped
@@ -1730,7 +2401,8 @@ class WordReplacerGUI:
         L, colon_sp, nl, arrow, seq, max_matches_limit=None
     ):
         """단일 리터럴 고속 경로(그대로)."""
-        s, d = target
+        s = self._mapping_src(target)
+        d = self._mapping_preview_dst(target)
         s_find = s if case else s.lower()
         s_len = len(s)
         if s and ("\n" not in s and "\r" not in s):
@@ -1858,7 +2530,7 @@ class WordReplacerGUI:
                 write(tail); pos += len(tail)
 
         capped = shown_total >= max_matches
-        summary = self._build_preview_summary([(s, d)], [shown_total], [capped])
+        summary = self._build_preview_summary([target], [shown_total], [capped])
         summary_len = len(summary)
         shifted_ranges = [(a + summary_len, b + summary_len) for a, b in ranges]
         return summary + out.getvalue(), shifted_ranges, truncated or capped
@@ -1940,14 +2612,33 @@ class WordReplacerGUI:
     # ────────────────────── 치환 ────────────────────── #
     def _compile_patterns_for_replace(self, pairs, regex: bool, flags: int):
         compiled = []
-        for s, d in pairs:
-            patt = re.compile(s if regex else re.escape(s), flags)
-            if (not regex) and ("\\" not in d):
+        line_flags = flags & ~re.DOTALL
+        for mapping in pairs:
+            s = self._mapping_src(mapping)
+            d = self._mapping_dst(mapping)
+            mode = self._mapping_mode(mapping)
+            patt_flags = line_flags if mode == self.MAP_MODE_DELETE_LINE else flags
+            patt = re.compile(s if regex else re.escape(s), patt_flags)
+            if mode == self.MAP_MODE_DELETE_LINE:
+                repl = None
+            elif (not regex) and ("\\" not in d):
                 repl = d
             else:
                 repl = (lambda rep: (lambda m: rep))(d)
-            compiled.append((patt, repl, s, d))
+            compiled.append((mode, patt, repl, mapping))
         return compiled
+
+    def _delete_lines_matching(self, text: str, pattern, file_path: str, mapping) -> tuple[str, int]:
+        kept = []
+        removed = 0
+        for line_no, line in enumerate(text.splitlines(True), start=1):
+            searchable = line.rstrip("\r\n")
+            key = self._make_delete_line_selection_key(file_path, mapping, line_no)
+            if pattern.search(searchable) and self.delete_line_selection_overrides.get(key, True):
+                removed += 1
+            else:
+                kept.append(line)
+        return "".join(kept), removed
 
     def start_replace(self):
         if self.is_replacing:
@@ -1964,23 +2655,36 @@ class WordReplacerGUI:
         flags = re.DOTALL | (0 if case else re.IGNORECASE)
 
         if regex:
-            for i, (s, _) in enumerate(pairs, 1):
+            for i, mapping in enumerate(pairs, 1):
+                s = self._mapping_src(mapping)
+                patt_flags = (flags & ~re.DOTALL) if self._mapping_mode(mapping) == self.MAP_MODE_DELETE_LINE else flags
                 try:
-                    re.compile(s, flags)
+                    re.compile(s, patt_flags)
                 except re.error as ex:
                     messagebox.showerror("Regex Error", f"Invalid regex in mapping #{i}:\n{s}\n\n{ex}")
                     return
 
         scope_label = "selected files" if self.replace_scope_var.get() == "selected" else "all files"
+        delete_line_count = sum(1 for mapping in pairs if self._mapping_mode(mapping) == self.MAP_MODE_DELETE_LINE)
+        delete_word_count = sum(1 for mapping in pairs if self._mapping_mode(mapping) == self.MAP_MODE_DELETE_WORD)
+        replace_count = len(pairs) - delete_line_count - delete_word_count
+        operation_bits = []
+        if replace_count:
+            operation_bits.append(f"{replace_count} replace")
+        if delete_word_count:
+            operation_bits.append(f"{delete_word_count} word delete")
+        if delete_line_count:
+            operation_bits.append(f"{delete_line_count} line delete")
+        operation_label = ", ".join(operation_bits)
         confirm_message = (
-            f"Replace {len(pairs)} mapping(s) in {len(files)} {scope_label}?\n"
+            f"Apply {len(pairs)} mapping(s) ({operation_label}) in {len(files)} {scope_label}?\n"
             "Backup files (*.bak) will be created next to each source file."
         )
         if not messagebox.askokcancel("Confirm Replace", confirm_message):
             return
 
         self.progress.config(maximum=len(files), value=0)
-        self.replace_status_label.config(text=f"Running replacement in {len(files)} file(s)...")
+        self.replace_status_label.config(text=f"Running updates in {len(files)} file(s)...")
         self.replace_cancel_event.clear()
         self._set_replace_running(True)
         self.replace_thread = threading.Thread(
@@ -2000,7 +2704,11 @@ class WordReplacerGUI:
         self.total_replacements = 0
         self.file_mapping_changes.clear()
 
-        use_literal_case_sensitive_fastpath = (not regex) and case
+        use_literal_case_sensitive_fastpath = (
+            (not regex)
+            and case
+            and all(self._mapping_mode(mapping) != self.MAP_MODE_DELETE_LINE for mapping in pairs)
+        )
         compiled = [] if use_literal_case_sensitive_fastpath else self._compile_patterns_for_replace(pairs, regex, flags)
         cancelled = False
         processed = 0
@@ -2015,18 +2723,23 @@ class WordReplacerGUI:
                 new = txt
                 fm = set()
                 if use_literal_case_sensitive_fastpath:
-                    for s, d in pairs:
+                    for mapping in pairs:
+                        s = self._mapping_src(mapping)
+                        d = self._mapping_dst(mapping)
                         cnt = new.count(s)
                         if cnt:
                             new = new.replace(s, d)
                             self.total_replacements += cnt
-                            fm.add((s, d))
+                            fm.add(mapping)
                 else:
-                    for patt, repl, s, d in compiled:
-                        new, cnt = patt.subn(repl, new)
+                    for mode, patt, repl, mapping in compiled:
+                        if mode == self.MAP_MODE_DELETE_LINE:
+                            new, cnt = self._delete_lines_matching(new, patt, f, mapping)
+                        else:
+                            new, cnt = patt.subn(repl, new)
                         if cnt:
                             self.total_replacements += cnt
-                            fm.add((s, d))
+                            fm.add(mapping)
                 if new != txt:
                     bak = f + ".bak"
                     shutil.copy(f, bak)
@@ -2054,10 +2767,12 @@ class WordReplacerGUI:
         else:
             self.progress["value"] = self.progress["maximum"]
             self.replace_status_label.config(
-                text=f"Completed. {len(self.file_mapping_changes)} files changed, {self.total_replacements} replacements."
+                text=f"Completed. {len(self.file_mapping_changes)} files changed, {self.total_replacements} changes."
             )
             desc = ", ".join(
-                f"'{s}' -> '{d}'" for f in self.file_mapping_changes for s, d in self.file_mapping_changes[f]
+                self._format_mapping_log_label(mapping)
+                for f in self.file_mapping_changes
+                for mapping in self.file_mapping_changes[f]
             ) or "(none)"
             self.log(
                 f"Completed: {len(self.file_mapping_changes)} files, {self.total_replacements} changes. "
@@ -2083,7 +2798,7 @@ class WordReplacerGUI:
                     self.file_cache[f] = Path(f).read_text(encoding="euc-kr", errors="ignore")
                 self._clear_cached_file_derivatives(f)
             fm = self.file_mapping_changes.get(f, set())
-            desc = ", ".join(f"'{d}' -> '{s}'" for s, d in fm)
+            desc = ", ".join(self._format_mapping_log_label(mapping) for mapping in fm)
             self.log(f"Restored {os.path.basename(f)}; Mappings: {desc}")
 
         self.last_replaced.clear()

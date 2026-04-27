@@ -1,6 +1,6 @@
-# word-replacer-gui
+# Batch Text Transformer
 
-A desktop GUI tool for batch text replacement across multiple files.
+A desktop GUI tool for batch text replacement, deletion, and line filtering across multiple files.
 
 This project is built with Python + Tkinter and provides safe replace workflows with preview, backup, cancel, and undo.
 
@@ -8,6 +8,8 @@ This project is built with Python + Tkinter and provides safe replace workflows 
 ## Key Features
 
 - Multi-file replacement with `src,dst` mapping input
+- Delete matched words with `src,`
+- Delete lines containing a match with `src,,delete-line`
 - Preview with match highlighting
 - Replace scope: `All` (default) or `Selected`
 - Regex mode and case-sensitive mode
@@ -35,7 +37,7 @@ This project is built with Python + Tkinter and provides safe replace workflows 
 ## Run
 
 ```bash
-python word-replacer-gui.py
+python batch-text-transformer.py
 ```
 
 ## Mapping Format
@@ -50,6 +52,8 @@ Examples:
 
 ```text
 foo,bar
+foo,
+foo,,delete-line
 "hello world","HELLO_WORLD"
 # comment lines are ignored
 ```
@@ -57,18 +61,22 @@ foo,bar
 Notes:
 
 - Empty source values are ignored.
-- Replace operation uses mappings that have both `src` and `dst`.
+- `src,dst` replaces `src` with `dst`.
+- `src,` deletes the matched text.
+- `src,,delete-line` deletes each line containing `src`.
+- A line with only `src` is preview-only and is not applied during replace.
+- `delete-line` matches are selected by default in Preview. Click a highlighted delete-line row to toggle whether that line is applied.
 
 ## Usage
 
 1. Add input text files (`Browse Files` or drag-and-drop when enabled).
-2. Enter mapping lines in `src,dst` format.
+2. Enter mapping lines for replace or delete operations.
 3. Choose options:
    - `Regex Mode`
    - `Case Sensitive`
    - `Replace scope` (`All` / `Selected`)
 4. Review matches in the preview panel.
-5. Click `Replace` and confirm.
+5. Click `Apply` and confirm.
 6. Use `Cancel` to stop an ongoing run (current file finishes first).
 7. Use `Undo` to restore from `.bak` backups.
 
@@ -80,7 +88,7 @@ Notes:
 
 ## Project Files
 
-- `word-replacer-gui.py`: main GUI application
+- `batch-text-transformer.py`: main GUI application
 - `word_replacer_session.json`: saved UI session state
 - `*.bak`: backup files created during replace
 
