@@ -403,6 +403,8 @@ class WordReplacerGUI:
         # ── 스타일 ──
         self.style = self._configure_theme()
 
+        self._pending_log_messages = []
+
         # ── 레이아웃 ──
         container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
         container.pack(fill=tk.BOTH, expand=True)
@@ -426,7 +428,8 @@ class WordReplacerGUI:
         # 1) 파일 리스트
         file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         file_frame.columnconfigure(0, weight=1)
-        ttk.Label(file_frame, text="Input Files", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        self.input_files_label = ttk.Label(file_frame, text="Input Files", style="Section.TLabel")
+        self.input_files_label.grid(row=0, column=0, sticky="w")
 
         self.file_listbox = tk.Listbox(
             file_frame, selectmode="extended")
@@ -441,11 +444,8 @@ class WordReplacerGUI:
         self.vsb_file.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.file_listbox.config(xscrollcommand=self.hsb_file.set, yscrollcommand=self.vsb_file.set)
 
-        if DND_TYPE == 'tkinterdnd2':
-            self.file_listbox.drop_target_register(DND_FILES)
-            self.file_listbox.dnd_bind('<<Drop>>', self.on_files_dropped)
-        elif DND_TYPE == 'tkdnd':
-            TkDND(master).bindtarget(self.file_listbox, self.on_files_dropped, 'text/uri-list')
+        if DND_TYPE is not None:
+            self._register_file_drop_target(self.file_listbox)
 
         btn_frame = ttk.Frame(file_frame, style="Panel.TFrame")
         btn_frame.grid(row=3, column=0, sticky="w", pady=(8, 6))
@@ -459,6 +459,8 @@ class WordReplacerGUI:
             dnd_text = "Drag & drop enabled."
         self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, style="Hint.TLabel")
         self.dnd_hint_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
+        # Keep DND registration intentionally narrow. Caja has proven reliable with
+        # DND_FILES for tkinterdnd2 and text/uri-list for the legacy tkdnd wrapper.
 
         file_frame.rowconfigure(1, weight=1)
         self.paned.add(file_frame, weight=25)
@@ -715,6 +717,9 @@ class WordReplacerGUI:
         self.vsb_log = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_area.yview)
         self.vsb_log.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.log_area.config(yscrollcommand=self.vsb_log.set, xscrollcommand=self.hsb_log.set)
+        for message in self._pending_log_messages:
+            self.log(message)
+        self._pending_log_messages.clear()
 
         # 진행 바
         status_frame = ttk.Frame(container, padding=(12, 9), style="StatusBar.TFrame")
@@ -835,6 +840,21 @@ class WordReplacerGUI:
         self.file_lower_cache[path] = lowered
         return lowered
 
+    def _queue_startup_log(self, message: str):
+        if hasattr(self, "log_area"):
+            self.log(message)
+        else:
+            self._pending_log_messages.append(message)
+
+    def _register_file_drop_target(self, widget):
+        if DND_TYPE == 'tkinterdnd2':
+            self._queue_startup_log("tkinterdnd2")
+            widget.drop_target_register(DND_FILES)
+            widget.dnd_bind('<<Drop>>', self.on_files_dropped)
+        elif DND_TYPE == 'tkdnd':
+            self._queue_startup_log("tkdnd")
+            TkDND(self.master).bindtarget(widget, self.on_files_dropped, 'text/uri-list')
+
     @staticmethod
     def _normalize_file_path(raw: str) -> str:
         s = str(raw).strip().strip("{}")
@@ -849,6 +869,49 @@ class WordReplacerGUI:
                 p = f"//{u.netloc}{p}"
             s = p
         return os.path.normpath(s)
+
+    @staticmethod
+    def _parse_text_uri_list(raw: str) -> list[str]:
+        """Parse freedesktop text/uri-list and GNOME/Caja clipboard payloads."""
+        paths = []
+        for line in str(raw).replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            item = line.strip()
+            if not item or item.startswith("#"):
+                continue
+            # Some GTK file managers use the x-special/gnome-copied-files format,
+            # whose first line is an action followed by file:// URIs.
+            if item.lower() in {"copy", "cut", "move"}:
+                continue
+            # x-special/gnome-icon-list can include icon coordinate records after
+            # the URI; those are drag metadata, not files.
+            if re.match(r"^-?\d+:-?\d+(?::|$)", item):
+                continue
+            paths.append(item)
+        return paths
+
+    def _parse_dropped_files(self, data) -> list[str]:
+        """Return path/URI tokens from Tk DND payloads, including Caja URI lists."""
+        if data is None:
+            return []
+        if isinstance(data, (list, tuple)):
+            tokens = [str(item) for item in data]
+        else:
+            raw = str(data)
+            if ("\n" in raw or "\r" in raw) and re.search(r"(?im)^(?:file:|copy$|cut$|move$|#)", raw):
+                tokens = self._parse_text_uri_list(raw)
+            else:
+                try:
+                    tokens = list(self.master.tk.splitlist(raw))
+                except tk.TclError:
+                    tokens = [raw]
+
+        parsed = []
+        for token in tokens:
+            if "\n" in token or "\r" in token:
+                parsed.extend(self._parse_text_uri_list(token))
+            elif token.strip():
+                parsed.append(token)
+        return parsed
 
     def _add_files(self, paths, source="files", log_result=True):
         if not paths:
@@ -1357,7 +1420,7 @@ class WordReplacerGUI:
         return "break"
 
     def on_files_dropped(self, event):
-        dropped = self.master.tk.splitlist(event.data)
+        dropped = self._parse_dropped_files(event.data)
         self._add_files(dropped, source="Drop Files")
         self.update_src_list()
 
