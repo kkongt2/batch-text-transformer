@@ -403,9 +403,10 @@ class WordReplacerGUI:
         # ── 스타일 ──
         self.style = self._configure_theme()
 
+        self._pending_log_messages = []
+
         # ── 레이아웃 ──
-        self.container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
-        container = self.container
+        container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
         container.pack(fill=tk.BOTH, expand=True)
         container.rowconfigure(1, weight=3)
         container.rowconfigure(2, weight=1)
@@ -425,8 +426,7 @@ class WordReplacerGUI:
         self.paned.bind("<Configure>", self._on_paned_configure)
 
         # 1) 파일 리스트
-        self.file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
-        file_frame = self.file_frame
+        file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         file_frame.columnconfigure(0, weight=1)
         self.input_files_label = ttk.Label(file_frame, text="Input Files", style="Section.TLabel")
         self.input_files_label.grid(row=0, column=0, sticky="w")
@@ -459,9 +459,8 @@ class WordReplacerGUI:
             dnd_text = "Drag & drop enabled."
         self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, style="Hint.TLabel")
         self.dnd_hint_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
-        if DND_TYPE is not None:
-            for widget in (self.master, self.container, file_frame, self.input_files_label, self.dnd_hint_label):
-                self._register_file_drop_target(widget)
+        # Keep DND registration intentionally narrow. Caja has proven reliable with
+        # DND_FILES for tkinterdnd2 and text/uri-list for the legacy tkdnd wrapper.
 
         file_frame.rowconfigure(1, weight=1)
         self.paned.add(file_frame, weight=25)
@@ -718,6 +717,9 @@ class WordReplacerGUI:
         self.vsb_log = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_area.yview)
         self.vsb_log.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.log_area.config(yscrollcommand=self.vsb_log.set, xscrollcommand=self.hsb_log.set)
+        for message in self._pending_log_messages:
+            self.log(message)
+        self._pending_log_messages.clear()
 
         # 진행 바
         status_frame = ttk.Frame(container, padding=(12, 9), style="StatusBar.TFrame")
@@ -838,65 +840,20 @@ class WordReplacerGUI:
         self.file_lower_cache[path] = lowered
         return lowered
 
-    @staticmethod
-    def _file_drop_action(event=None) -> str:
-        action = getattr(event, "action", "") if event is not None else ""
-        if action and action not in {"refuse_drop", "none"}:
-            return action
-        actions = getattr(event, "actions", ()) if event is not None else ()
-        if isinstance(actions, str):
-            actions = (actions,)
-        for preferred in ("copy", "move", "link", "ask", "private"):
-            if preferred in actions:
-                return preferred
-        return "copy"
+    def _queue_startup_log(self, message: str):
+        if hasattr(self, "log_area"):
+            self.log(message)
+        else:
+            self._pending_log_messages.append(message)
 
     def _register_file_drop_target(self, widget):
         if DND_TYPE == 'tkinterdnd2':
-            # Caja/Nautilus/Nemo/Thunar can advertise several X11 DND target
-            # names. Wildcard registration keeps the target acceptable even when
-            # the file manager chooses a non-standard but parseable URI payload.
-            widget.drop_target_register(
-                DND_FILES,
-                'DND_Files',
-                'text/uri-list',
-                'text/plain',
-                'text/plain;charset=utf-8',
-                'UTF8_STRING',
-                'TEXT',
-                'STRING',
-                'x-special/gnome-copied-files',
-                'x-special/gnome-icon-list',
-                '*',
-            )
-            widget.dnd_bind('<<DropEnter>>', self._file_drop_action)
-            widget.dnd_bind('<<DropPosition>>', self._file_drop_action)
-            widget.dnd_bind('<<DropLeave>>', self._file_drop_action)
+            self._queue_startup_log("tkinterdnd2")
+            widget.drop_target_register(DND_FILES)
             widget.dnd_bind('<<Drop>>', self.on_files_dropped)
         elif DND_TYPE == 'tkdnd':
-            self._register_legacy_tkdnd_target(widget)
-
-    def _register_legacy_tkdnd_target(self, widget):
-        dnd = TkDND(self.master)
-        for dnd_type in (DND_FILES, 'text/uri-list', 'text/plain', 'x-special/gnome-copied-files', 'x-special/gnome-icon-list', '*'):
-            dnd.bindtarget(widget, self.on_files_dropped, dnd_type)
-
-        # Older tkdnd Python wrappers only bind <Drop>. Add Tcl-level target
-        # bindings as well so XDND gets an accept action while hovering.
-        try:
-            self.master.tk.call('tkdnd::drop_target', 'register', widget._w, (
-                DND_FILES,
-                'text/uri-list',
-                'text/plain',
-                'x-special/gnome-copied-files',
-                'x-special/gnome-icon-list',
-                '*',
-            ))
-            self.master.tk.call('bind', widget._w, '<<DropEnter>>', 'list copy')
-            self.master.tk.call('bind', widget._w, '<<DropPosition>>', 'list copy')
-            self.master.tk.call('bind', widget._w, '<<DropLeave>>', 'list copy')
-        except tk.TclError:
-            pass
+            self._queue_startup_log("tkdnd")
+            TkDND(self.master).bindtarget(widget, self.on_files_dropped, 'text/uri-list')
 
     @staticmethod
     def _normalize_file_path(raw: str) -> str:
@@ -1466,7 +1423,6 @@ class WordReplacerGUI:
         dropped = self._parse_dropped_files(event.data)
         self._add_files(dropped, source="Drop Files")
         self.update_src_list()
-        return self._file_drop_action(event)
 
     def on_mapping_modified(self, event):
         if self.map_text.edit_modified():
