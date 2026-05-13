@@ -426,7 +426,8 @@ class WordReplacerGUI:
         # 1) 파일 리스트
         file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
         file_frame.columnconfigure(0, weight=1)
-        ttk.Label(file_frame, text="Input Files", style="Section.TLabel").grid(row=0, column=0, sticky="w")
+        self.input_files_label = ttk.Label(file_frame, text="Input Files", style="Section.TLabel")
+        self.input_files_label.grid(row=0, column=0, sticky="w")
 
         self.file_listbox = tk.Listbox(
             file_frame, selectmode="extended")
@@ -441,14 +442,8 @@ class WordReplacerGUI:
         self.vsb_file.grid(row=1, column=1, sticky="ns", pady=(8, 0))
         self.file_listbox.config(xscrollcommand=self.hsb_file.set, yscrollcommand=self.vsb_file.set)
 
-        if DND_TYPE == 'tkinterdnd2':
-            # Caja and other Linux file managers may offer text/uri-list instead of
-            # Tk's native DND_Files payload. Register both formats and normalize the
-            # payload in on_files_dropped so drag-and-drop works consistently.
-            self.file_listbox.drop_target_register(DND_FILES, 'text/uri-list', 'text/plain')
-            self.file_listbox.dnd_bind('<<Drop>>', self.on_files_dropped)
-        elif DND_TYPE == 'tkdnd':
-            TkDND(master).bindtarget(self.file_listbox, self.on_files_dropped, 'text/uri-list')
+        if DND_TYPE is not None:
+            self._register_file_drop_target(self.file_listbox)
 
         btn_frame = ttk.Frame(file_frame, style="Panel.TFrame")
         btn_frame.grid(row=3, column=0, sticky="w", pady=(8, 6))
@@ -462,6 +457,10 @@ class WordReplacerGUI:
             dnd_text = "Drag & drop enabled."
         self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, style="Hint.TLabel")
         self.dnd_hint_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
+        if DND_TYPE is not None:
+            self._register_file_drop_target(file_frame)
+            self._register_file_drop_target(self.input_files_label)
+            self._register_file_drop_target(self.dnd_hint_label)
 
         file_frame.rowconfigure(1, weight=1)
         self.paned.add(file_frame, weight=25)
@@ -839,6 +838,37 @@ class WordReplacerGUI:
         return lowered
 
     @staticmethod
+    def _file_drop_action(event=None) -> str:
+        return "copy"
+
+    def _register_file_drop_target(self, widget):
+        if DND_TYPE == 'tkinterdnd2':
+            # Caja/Nautilus/Nemo/Thunar can advertise several X11 DND target
+            # names. Wildcard registration keeps the target acceptable even when
+            # the file manager chooses a non-standard but parseable URI payload.
+            widget.drop_target_register(
+                DND_FILES,
+                'DND_Files',
+                'text/uri-list',
+                'text/plain',
+                'text/plain;charset=utf-8',
+                'UTF8_STRING',
+                'TEXT',
+                'STRING',
+                'x-special/gnome-copied-files',
+                'x-special/gnome-icon-list',
+                '*',
+            )
+            widget.dnd_bind('<<DropEnter>>', self._file_drop_action)
+            widget.dnd_bind('<<DropPosition>>', self._file_drop_action)
+            widget.dnd_bind('<<Drop>>', self.on_files_dropped)
+        elif DND_TYPE == 'tkdnd':
+            dnd = TkDND(self.master)
+            dnd.bindtarget(widget, self.on_files_dropped, DND_FILES)
+            dnd.bindtarget(widget, self.on_files_dropped, 'text/uri-list')
+            dnd.bindtarget(widget, self.on_files_dropped, 'text/plain')
+
+    @staticmethod
     def _normalize_file_path(raw: str) -> str:
         s = str(raw).strip().strip("{}")
         if not s:
@@ -864,6 +894,10 @@ class WordReplacerGUI:
             # Some GTK file managers use the x-special/gnome-copied-files format,
             # whose first line is an action followed by file:// URIs.
             if item.lower() in {"copy", "cut", "move"}:
+                continue
+            # x-special/gnome-icon-list can include icon coordinate records after
+            # the URI; those are drag metadata, not files.
+            if re.match(r"^-?\d+:-?\d+(?::|$)", item):
                 continue
             paths.append(item)
         return paths
@@ -1402,6 +1436,7 @@ class WordReplacerGUI:
         dropped = self._parse_dropped_files(event.data)
         self._add_files(dropped, source="Drop Files")
         self.update_src_list()
+        return self._file_drop_action(event)
 
     def on_mapping_modified(self, event):
         if self.map_text.edit_modified():

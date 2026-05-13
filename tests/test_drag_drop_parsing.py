@@ -33,12 +33,28 @@ class DragDropParsingTest(unittest.TestCase):
             ["/home/me/a.txt", "/home/me/b.txt"],
         )
 
+    def test_ignores_gnome_icon_coordinate_lines(self):
+        payload = "file:///home/me/a.txt\r\n10:20:30:40\r\nfile:///home/me/b.txt\r\n"
+        self.assertEqual(
+            [app.WordReplacerGUI._normalize_file_path(p) for p in self.gui._parse_dropped_files(payload)],
+            ["/home/me/a.txt", "/home/me/b.txt"],
+        )
+
     def test_preserves_tk_dnd_files_with_spaces(self):
         payload = "{/home/me/a file.txt} {/home/me/b file.txt}"
         self.assertEqual(
             self.gui._parse_dropped_files(payload),
             ["/home/me/a file.txt", "/home/me/b file.txt"],
         )
+
+    def test_drop_callback_returns_copy_action(self):
+        calls = []
+        self.gui._add_files = lambda paths, source: calls.append((paths, source))
+        self.gui.update_src_list = lambda: calls.append("updated")
+        event = type("DropEvent", (), {"data": "file:///home/me/a.txt"})()
+
+        self.assertEqual(self.gui.on_files_dropped(event), "copy")
+        self.assertEqual(calls, [(["file:///home/me/a.txt"], "Drop Files"), "updated"])
 
 
 if __name__ == "__main__":
