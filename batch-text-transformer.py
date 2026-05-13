@@ -442,7 +442,10 @@ class WordReplacerGUI:
         self.file_listbox.config(xscrollcommand=self.hsb_file.set, yscrollcommand=self.vsb_file.set)
 
         if DND_TYPE == 'tkinterdnd2':
-            self.file_listbox.drop_target_register(DND_FILES)
+            # Caja and other Linux file managers may offer text/uri-list instead of
+            # Tk's native DND_Files payload. Register both formats and normalize the
+            # payload in on_files_dropped so drag-and-drop works consistently.
+            self.file_listbox.drop_target_register(DND_FILES, 'text/uri-list', 'text/plain')
             self.file_listbox.dnd_bind('<<Drop>>', self.on_files_dropped)
         elif DND_TYPE == 'tkdnd':
             TkDND(master).bindtarget(self.file_listbox, self.on_files_dropped, 'text/uri-list')
@@ -849,6 +852,45 @@ class WordReplacerGUI:
                 p = f"//{u.netloc}{p}"
             s = p
         return os.path.normpath(s)
+
+    @staticmethod
+    def _parse_text_uri_list(raw: str) -> list[str]:
+        """Parse freedesktop text/uri-list and GNOME/Caja clipboard payloads."""
+        paths = []
+        for line in str(raw).replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+            item = line.strip()
+            if not item or item.startswith("#"):
+                continue
+            # Some GTK file managers use the x-special/gnome-copied-files format,
+            # whose first line is an action followed by file:// URIs.
+            if item.lower() in {"copy", "cut", "move"}:
+                continue
+            paths.append(item)
+        return paths
+
+    def _parse_dropped_files(self, data) -> list[str]:
+        """Return path/URI tokens from Tk DND payloads, including Caja URI lists."""
+        if data is None:
+            return []
+        if isinstance(data, (list, tuple)):
+            tokens = [str(item) for item in data]
+        else:
+            raw = str(data)
+            if ("\n" in raw or "\r" in raw) and re.search(r"(?im)^(?:file:|copy$|cut$|move$|#)", raw):
+                tokens = self._parse_text_uri_list(raw)
+            else:
+                try:
+                    tokens = list(self.master.tk.splitlist(raw))
+                except tk.TclError:
+                    tokens = [raw]
+
+        parsed = []
+        for token in tokens:
+            if "\n" in token or "\r" in token:
+                parsed.extend(self._parse_text_uri_list(token))
+            elif token.strip():
+                parsed.append(token)
+        return parsed
 
     def _add_files(self, paths, source="files", log_result=True):
         if not paths:
@@ -1357,7 +1399,7 @@ class WordReplacerGUI:
         return "break"
 
     def on_files_dropped(self, event):
-        dropped = self.master.tk.splitlist(event.data)
+        dropped = self._parse_dropped_files(event.data)
         self._add_files(dropped, source="Drop Files")
         self.update_src_list()
 
