@@ -47,13 +47,23 @@ class DragDropParsingTest(unittest.TestCase):
             ["/home/me/a file.txt", "/home/me/b file.txt"],
         )
 
-    def test_drop_callback_returns_copy_action(self):
+    def test_file_drop_action_prefers_event_action(self):
+        event = type("DropEvent", (), {"action": "move", "actions": ("copy", "move")})()
+
+        self.assertEqual(app.WordReplacerGUI._file_drop_action(event), "move")
+
+    def test_file_drop_action_uses_supported_fallback(self):
+        event = type("DropEvent", (), {"action": "refuse_drop", "actions": ("link", "copy")})()
+
+        self.assertEqual(app.WordReplacerGUI._file_drop_action(event), "copy")
+
+    def test_drop_callback_returns_negotiated_action(self):
         calls = []
         self.gui._add_files = lambda paths, source: calls.append((paths, source))
         self.gui.update_src_list = lambda: calls.append("updated")
-        event = type("DropEvent", (), {"data": "file:///home/me/a.txt"})()
+        event = type("DropEvent", (), {"data": "file:///home/me/a.txt", "action": "move"})()
 
-        self.assertEqual(self.gui.on_files_dropped(event), "copy")
+        self.assertEqual(self.gui.on_files_dropped(event), "move")
         self.assertEqual(calls, [(["file:///home/me/a.txt"], "Drop Files"), "updated"])
 
 

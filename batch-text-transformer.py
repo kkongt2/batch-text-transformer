@@ -404,7 +404,8 @@ class WordReplacerGUI:
         self.style = self._configure_theme()
 
         # ── 레이아웃 ──
-        container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
+        self.container = ttk.Frame(master, padding=(18, 16, 18, 14), style="Root.TFrame")
+        container = self.container
         container.pack(fill=tk.BOTH, expand=True)
         container.rowconfigure(1, weight=3)
         container.rowconfigure(2, weight=1)
@@ -424,7 +425,8 @@ class WordReplacerGUI:
         self.paned.bind("<Configure>", self._on_paned_configure)
 
         # 1) 파일 리스트
-        file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
+        self.file_frame = ttk.Frame(self.paned, padding=(12, 10), style="Panel.TFrame")
+        file_frame = self.file_frame
         file_frame.columnconfigure(0, weight=1)
         self.input_files_label = ttk.Label(file_frame, text="Input Files", style="Section.TLabel")
         self.input_files_label.grid(row=0, column=0, sticky="w")
@@ -458,9 +460,8 @@ class WordReplacerGUI:
         self.dnd_hint_label = ttk.Label(file_frame, text=dnd_text, style="Hint.TLabel")
         self.dnd_hint_label.grid(row=4, column=0, sticky="w", pady=(0, 4))
         if DND_TYPE is not None:
-            self._register_file_drop_target(file_frame)
-            self._register_file_drop_target(self.input_files_label)
-            self._register_file_drop_target(self.dnd_hint_label)
+            for widget in (self.master, self.container, file_frame, self.input_files_label, self.dnd_hint_label):
+                self._register_file_drop_target(widget)
 
         file_frame.rowconfigure(1, weight=1)
         self.paned.add(file_frame, weight=25)
@@ -839,6 +840,15 @@ class WordReplacerGUI:
 
     @staticmethod
     def _file_drop_action(event=None) -> str:
+        action = getattr(event, "action", "") if event is not None else ""
+        if action and action not in {"refuse_drop", "none"}:
+            return action
+        actions = getattr(event, "actions", ()) if event is not None else ()
+        if isinstance(actions, str):
+            actions = (actions,)
+        for preferred in ("copy", "move", "link", "ask", "private"):
+            if preferred in actions:
+                return preferred
         return "copy"
 
     def _register_file_drop_target(self, widget):
@@ -861,12 +871,32 @@ class WordReplacerGUI:
             )
             widget.dnd_bind('<<DropEnter>>', self._file_drop_action)
             widget.dnd_bind('<<DropPosition>>', self._file_drop_action)
+            widget.dnd_bind('<<DropLeave>>', self._file_drop_action)
             widget.dnd_bind('<<Drop>>', self.on_files_dropped)
         elif DND_TYPE == 'tkdnd':
-            dnd = TkDND(self.master)
-            dnd.bindtarget(widget, self.on_files_dropped, DND_FILES)
-            dnd.bindtarget(widget, self.on_files_dropped, 'text/uri-list')
-            dnd.bindtarget(widget, self.on_files_dropped, 'text/plain')
+            self._register_legacy_tkdnd_target(widget)
+
+    def _register_legacy_tkdnd_target(self, widget):
+        dnd = TkDND(self.master)
+        for dnd_type in (DND_FILES, 'text/uri-list', 'text/plain', 'x-special/gnome-copied-files', 'x-special/gnome-icon-list', '*'):
+            dnd.bindtarget(widget, self.on_files_dropped, dnd_type)
+
+        # Older tkdnd Python wrappers only bind <Drop>. Add Tcl-level target
+        # bindings as well so XDND gets an accept action while hovering.
+        try:
+            self.master.tk.call('tkdnd::drop_target', 'register', widget._w, (
+                DND_FILES,
+                'text/uri-list',
+                'text/plain',
+                'x-special/gnome-copied-files',
+                'x-special/gnome-icon-list',
+                '*',
+            ))
+            self.master.tk.call('bind', widget._w, '<<DropEnter>>', 'list copy')
+            self.master.tk.call('bind', widget._w, '<<DropPosition>>', 'list copy')
+            self.master.tk.call('bind', widget._w, '<<DropLeave>>', 'list copy')
+        except tk.TclError:
+            pass
 
     @staticmethod
     def _normalize_file_path(raw: str) -> str:
